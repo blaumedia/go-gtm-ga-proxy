@@ -2,13 +2,22 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
+
+func generateGACookie() string {
+	rand.Seed(time.Now().UnixNano())
+	return `GA` + GaCookieVersion + `.2.` + strconv.FormatInt(int64(rand.Intn(888888888)+111111111), 10) + `.` + strconv.FormatInt(time.Now().Unix(), 10)
+}
 
 func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool) {
 	client := &http.Client{}
@@ -71,6 +80,45 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 	re = regexp.MustCompile(`\"/collect`)
 	body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpoint))
 
+	if strings.ToLower(EnableServerSideGaCookies) == "true" || EnableServerSideGaCookies == "1" {
+		cookieContent, errCookie := r.Cookie(ServerSideGaCookieName)
+
+		var newCookieContent string
+		var newCookieDecodedContent string
+
+		if errCookie == nil {
+			cookieDecodedContent, errCookieDecode := base64.StdEncoding.DecodeString(cookieContent.Value)
+
+			if errCookieDecode == nil {
+				newCookieContent = cookieContent.Value
+				newCookieDecodedContent = string(cookieDecodedContent)
+			} else {
+				newCookieDecodedContent = generateGACookie()
+				newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+			}
+		} else {
+			if gaCookie, gaErr := r.Cookie(`_ga`); gaErr == nil {
+				newCookieDecodedContent = gaCookie.Value
+				newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+			} else {
+				newCookieDecodedContent = generateGACookie()
+				newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+			}
+		}
+
+		if strings.ToLower(CookieSecure) == "true" || CookieSecure == "1" {
+			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
+		} else if strings.ToLower(CookieSecure) == "false" || CookieSecure == "0" {
+			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
+		} else {
+			fmt.Println(`ERROR: Environment variable 'GA_SERVER_SIDE_COOKIE_SECURE' is not true/false or 1/0. Falling back to secure.`)
+			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
+		}
+	}
+
 	setResponseHeaders(w, resp.Header)
 	w.WriteHeader(resp.StatusCode)
 
@@ -108,8 +156,6 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	case `POST`:
 		postPayloadRaw, _ := ioutil.ReadAll(r.Body)
-
-		fmt.Println(string(postPayloadRaw))
 
 		postPayload := strings.Split(string(postPayloadRaw), `&`)
 

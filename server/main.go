@@ -35,6 +35,24 @@ var GaCollectEndpointJ = os.Getenv(`GA_COLLECT_J_ENDPOINT`)
 // Will be processed during main() function.
 var AllowedGtmIds = strings.Split(os.Getenv(`GTM_IDS`), `,`)
 
+// EnableServerSideGaCookies = true(string) if this proxy shall set the _ga cookie as HttpOnly cookie
+var EnableServerSideGaCookies = os.Getenv(`ENABLE_SERVER_SIDE_GA_COOKIES`)
+
+// ServerSideGaCookieName is the name where the cookie contents of _ga are being saved
+var ServerSideGaCookieName = os.Getenv(`GA_SERVER_SIDE_COOKIE`)
+
+// CookieDomain is the domain where the cookie is set for
+var CookieDomain = os.Getenv(`COOKIE_DOMAIN`)
+
+// CookieSecure = true/false to set cookie for https only connections
+var CookieSecure = os.Getenv(`COOKIE_SECURE`)
+
+// ClientSideGaCookieName defaults to _ga, optional can be changed through Environment variable 'GA_CLIENT_SIDE_COOKIE', see main() func
+var ClientSideGaCookieName = `_ga`
+
+// GaCookieVersion is the cookie version in the _ga cookie
+const GaCookieVersion = "1"
+
 func isInSlice(slice []string, val string) bool {
 	for _, item := range slice {
 		if item == val {
@@ -79,6 +97,11 @@ func main() {
 	if EndpointURL == `` || JsSubdirectory == `` || GtmFilename == `` || GaFilename == `` || GaDebugFilename == `` || GaCollectEndpoint == `` || GaCollectEndpointRedirect == `` || GaCollectEndpointJ == `` || len(AllowedGtmIds) < 1 {
 		fmt.Println(`ERROR: Seems the environment variables aren't set. Exiting.`)
 		os.Exit(1)
+	}
+
+	// Replace ClientSideGaCookieName if environment variable is set
+	if os.Getenv(`GA_CLIENT_SIDE_COOKIE`) != `` {
+		ClientSideGaCookieName = os.Getenv(`GA_CLIENT_SIDE_COOKIE`)
 	}
 
 	http.HandleFunc(JsSubdirectory, javascriptFilesHandle)
