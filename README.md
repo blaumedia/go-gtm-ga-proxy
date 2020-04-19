@@ -1,4 +1,5 @@
 # go-gtm-ga-proxy
+### Attention: ALPHA! Under heavy development!
 Bypass any tracking-blocking browser plugins with this first-party-tracking-proxy for Google Tag Manager and Google Analytics.
 
 ## Expected behaviour
