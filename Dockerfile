@@ -25,6 +25,8 @@ LABEL org.label-schema.vcs-url="https://github.com/blaumedia/go-gtm-ga-proxy"
 LABEL org.label-schema.version=$BUILD_VERSION
 LABEL org.label-schema.vcs-ref=$VCS_REF
 
+ENV APP_VERSION ${BUILD_VERSION}
+
 # Using port 8080 because we won't run the application as root
 EXPOSE 8080
 
