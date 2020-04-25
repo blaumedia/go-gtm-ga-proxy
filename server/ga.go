@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -113,7 +114,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
 		} else {
-			fmt.Println(`ERROR: Environment variable 'GA_SERVER_SIDE_COOKIE_SECURE' is not true/false or 1/0. Falling back to secure.`)
+			fmt.Println(`ERROR: Environment variable 'GA_SERVER_SIDE_COOKIE_SECURE' is not true/false or 1/0. Falling back to true.`)
 			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
 		}
@@ -178,7 +179,36 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	formatPayLoad = formatPayLoad + `ua=` + url.QueryEscape(r.Header.Get(`User-Agent`)) + `&uip=` + url.QueryEscape(strings.Split(r.RemoteAddr, `:`)[0])
+	if os.Getenv(`PROXY_IP_HEADER`) != `` {
+		proxyHeaderIps := strings.Split(r.Header.Get(os.Getenv(`PROXY_IP_HEADER`)), `,`)
+		var proxyHeaderIPIndex = 0
+
+		if os.Getenv(`PROXY_IP_HEADER_INDEX`) != `` {
+			n, err := strconv.Atoi(os.Getenv(`PROXY_IP_HEADER_INDEX`))
+			if err == nil {
+				proxyHeaderIPIndex = n
+			} else {
+				fmt.Println(`ERROR: Couldn't convert PROXY_IP_HEADER_INDEX environment variable to type int. Falling back to 0.`)
+			}
+		}
+
+		IPToRedirect := ``
+		for ipIndex, ipValue := range proxyHeaderIps {
+			if ipIndex == proxyHeaderIPIndex {
+				IPToRedirect = strings.TrimSpace(ipValue)
+			}
+		}
+
+		if IPToRedirect == `` {
+			fmt.Println(`ERROR: Given PROXY_IP_HEADER_INDEX environment variable wasn't found in header range. Fallback to index 0.`)
+
+			IPToRedirect = strings.TrimSpace(proxyHeaderIps[0])
+		}
+
+		formatPayLoad = formatPayLoad + `ua=` + url.QueryEscape(r.Header.Get(`User-Agent`)) + `&uip=` + url.QueryEscape(IPToRedirect)
+	} else {
+		formatPayLoad = formatPayLoad + `ua=` + url.QueryEscape(r.Header.Get(`User-Agent`)) + `&uip=` + url.QueryEscape(strings.Split(r.RemoteAddr, `:`)[0])
+	}
 
 	switch r.Method {
 	case `GET`:
