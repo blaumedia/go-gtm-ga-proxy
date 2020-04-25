@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -12,6 +13,12 @@ var EndpointURL = os.Getenv(`ENDPOINT_URL`)
 
 // JsSubdirectory contains the analytics.js and gtm.js
 var JsSubdirectory = os.Getenv(`JS_SUBDIRECTORY`)
+
+// GaCacheTime contains the time in seconds to cache the analytics.js and analytics_debug.js file
+var GaCacheTime, _ = strconv.ParseInt(os.Getenv(`GA_CACHE_TIME`), 10, 64)
+
+// GtmCacheTime contains the time in seconds to cache the gtm.js file
+var GtmCacheTime, _ = strconv.ParseInt(os.Getenv(`GTM_CACHE_TIME`), 10, 64)
 
 // GtmFilename is the new public name for the gtm.js file
 var GtmFilename = os.Getenv(`GTM_FILENAME`)
@@ -90,7 +97,7 @@ func setResponseHeaders(w http.ResponseWriter, headers http.Header) {
 		}
 	}
 
-	w.Header().Set(`Server`, `GoGtmGaProxy 1.0.0`)
+	w.Header().Set(`Server`, `GoGtmGaProxy `+os.Getenv(`APP_VERSION`))
 }
 
 func main() {

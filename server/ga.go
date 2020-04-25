@@ -15,71 +15,111 @@ import (
 	"time"
 )
 
+type gaSourceCodeCache struct {
+	lastUpdate int64
+	src        []byte
+	headers    http.Header
+}
+
+var (
+	srcGaCache      = gaSourceCodeCache{lastUpdate: 0}
+	srcGaDebugCache = gaSourceCodeCache{lastUpdate: 0}
+)
+
 func generateGACookie() string {
 	rand.Seed(time.Now().UnixNano())
 	return `GA` + GaCookieVersion + `.2.` + strconv.FormatInt(int64(rand.Intn(888888888)+111111111), 10) + `.` + strconv.FormatInt(time.Now().Unix(), 10)
 }
 
 func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool) {
-	client := &http.Client{}
+	var sourceCodeToReturn []byte
+	var statusCodeToReturn int = 200
+	var headersToReturn http.Header
+	var usedCache bool
+	var srcCachePointer *gaSourceCodeCache
 
-	var req *http.Request
-	var err error
-	if debug == false {
-		req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics.js`, nil)
+	if debug {
+		srcCachePointer = &srcGaDebugCache
 	} else {
-		req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics_debug.js`, nil)
+		srcCachePointer = &srcGaCache
 	}
 
-	if err != nil {
-		fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
+	if srcCachePointer.lastUpdate > (time.Now().Unix() - GaCacheTime) {
+		sourceCodeToReturn = srcCachePointer.src
+		headersToReturn = srcCachePointer.headers
+		usedCache = true
+	} else {
+		client := &http.Client{}
 
-		return
+		var req *http.Request
+		var err error
+		if debug == false {
+			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics.js`, nil)
+		} else {
+			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics_debug.js`, nil)
+		}
+
+		if err != nil {
+			fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
+
+			return
+		}
+
+		req.Header.Set(`User-Agent`, `GoGtmGaProxy `+os.Getenv(`APP_VERSION`)+`; github.com/blaumedia/go-gtm-ga-proxy`)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
+
+			return
+		}
+
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
+
+			return
+		}
+
+		JsSubdirectoryWithoutLeadingSlash := []rune(JsSubdirectory)
+		JsSubdirectoryWithoutLeadingSlash = JsSubdirectoryWithoutLeadingSlash[1:]
+
+		re := regexp.MustCompile(`googletagmanager.com`)
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
+
+		re = regexp.MustCompile(`\/gtm.js`)
+		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
+
+		re = regexp.MustCompile(`www.google-analytics.com`)
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
+
+		re = regexp.MustCompile(`analytics.js`)
+		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaFilename))
+
+		re = regexp.MustCompile(`u\/analytics_debug.js`)
+		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaDebugFilename))
+
+		re = regexp.MustCompile(`\"/r\/collect`)
+		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointRedirect))
+
+		re = regexp.MustCompile(`\"/j\/collect`)
+		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointJ))
+
+		re = regexp.MustCompile(`\"/collect`)
+		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpoint))
+
+		if resp.StatusCode == 200 {
+			srcCachePointer.headers = resp.Header
+			srcCachePointer.src = body
+			srcCachePointer.lastUpdate = time.Now().Unix()
+		}
+
+		headersToReturn = resp.Header
+		statusCodeToReturn = resp.StatusCode
+		sourceCodeToReturn = body
+		usedCache = false
 	}
-
-	req.Header.Set(`User-Agent`, `GoGtmGaProxy 1.0.0; github.com/blaumedia/go-gtm-ga-proxy`)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
-
-		return
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
-
-		return
-	}
-
-	JsSubdirectoryWithoutLeadingSlash := []rune(JsSubdirectory)
-	JsSubdirectoryWithoutLeadingSlash = JsSubdirectoryWithoutLeadingSlash[1:]
-
-	re := regexp.MustCompile(`googletagmanager.com`)
-	body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
-
-	re = regexp.MustCompile(`\/gtm.js`)
-	body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
-
-	re = regexp.MustCompile(`www.google-analytics.com`)
-	body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
-
-	re = regexp.MustCompile(`analytics.js`)
-	body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaFilename))
-
-	re = regexp.MustCompile(`u\/analytics_debug.js`)
-	body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaDebugFilename))
-
-	re = regexp.MustCompile(`\"/r\/collect`)
-	body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointRedirect))
-
-	re = regexp.MustCompile(`\"/j\/collect`)
-	body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointJ))
-
-	re = regexp.MustCompile(`\"/collect`)
-	body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpoint))
 
 	if strings.ToLower(EnableServerSideGaCookies) == "true" || EnableServerSideGaCookies == "1" {
 		cookieContent, errCookie := r.Cookie(ServerSideGaCookieName)
@@ -120,10 +160,17 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		}
 	}
 
-	setResponseHeaders(w, resp.Header)
-	w.WriteHeader(resp.StatusCode)
+	setResponseHeaders(w, headersToReturn)
 
-	w.Write([]byte(body))
+	if usedCache {
+		w.Header().Add(`X-Cache-Hit`, `true`)
+	} else {
+		w.Header().Add(`X-Cache-Hit`, `false`)
+	}
+
+	w.WriteHeader(statusCodeToReturn)
+
+	w.Write([]byte(sourceCodeToReturn))
 }
 
 func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
@@ -228,7 +275,7 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	req.Header.Set(`User-Agent`, `GoGtmGaProxy 1.0.0; github.com/blaumedia/go-gtm-ga-proxy`)
+	req.Header.Set(`User-Agent`, `GoGtmGaProxy `+os.Getenv(`APP_VERSION`)+`; github.com/blaumedia/go-gtm-ga-proxy`)
 	req.Header.Set(`Accept`, `*/*`)
 	req.Header.Set(`Content-Type`, `text/plain;charset=UTF-8`)
 
