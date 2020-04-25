@@ -1,5 +1,5 @@
 #
-# Building the Go library using multistage builds
+# Building the Go binary using multistage builds
 #
 FROM golang:1.14.2
 WORKDIR /go/src/GoGtmGaProxy/
@@ -31,8 +31,7 @@ EXPOSE 8080
 RUN apk --no-cache add ca-certificates
 
 RUN addgroup -S docker -g 433 && \
-    adduser -u 431 -S -g docker -h /app -s /sbin/nologin docker && \
-    chown -R docker:docker /app
+    adduser -u 431 -S -g docker -h /app -s /sbin/nologin docker
 
 USER docker
 WORKDIR /app/
