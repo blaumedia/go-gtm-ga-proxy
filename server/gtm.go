@@ -59,7 +59,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(GtmCookies) > 0 || srcGtmCache.lastUpdate > (time.Now().Unix()-GtmCacheTime) {
+	if len(GtmCookies) == 0 || srcGtmCache.lastUpdate > (time.Now().Unix()-GtmCacheTime) {
 		sourceCodeToReturn = srcGtmCache.src
 		headersToReturn = srcGtmCache.headers
 		usedCache = true
