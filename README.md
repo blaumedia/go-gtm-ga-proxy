@@ -8,7 +8,7 @@ Bypass any tracking-blocking browser plugins with this first-party-tracking-prox
 - - ~send redirection to user if google analytics /collect emdpoint answers with 302 redirection for google ads~
 - ~set \_ga cookie so it's server side and ITP safe~
 - ~deploy-ready docker container~
-- chrome plugin for sync of gtm cookies, so preview mode works?
+- ~chrome plugin for sync of gtm cookies, so preview mode works?~
 - maybe (!) geoip2 integration to send more detailed and more accurated geo information to google (https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#geoid)
 
 ## Client Id Cookie Integration
