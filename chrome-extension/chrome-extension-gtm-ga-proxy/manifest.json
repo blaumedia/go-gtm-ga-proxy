@@ -1,0 +1,29 @@
+{
+  "name": "GTM-Cookie-Sync",
+  "version": "1.0.0",
+  "description": "Sync for Go-Gtm-Ga-Proxy; https://github.com/blaumedia/go-gtm-ga-proxy",
+  "default_locale": "en",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "icons": {
+    "256": "images/gtmSync256.png"
+  },
+  "options_page": "options.html",
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "manifest_version": 2,
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "off",
+    "default_icon": {
+      "256": "images/gtmSync256.png"
+    }
+  }
+}
