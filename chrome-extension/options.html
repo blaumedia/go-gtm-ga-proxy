@@ -2,198 +2,261 @@
 <html>
 
 <head>
-    <title>GTM Cookie Sync - Settings</title>
-    <link rel="icon" type="image/png" href="images/gtmSync512.png" />
+  <title>GTM Cookie Sync - Settings</title>
+  <link rel="icon" type="image/png" href="images/gtmSync256.png" />
 
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@523&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@523&display=swap" rel="stylesheet">
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Manrope', sans-serif;
+    }
 
-        .feather {
-            width: 1rem;
-            height: 1rem;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            fill: none;
-            position: relative;
-            top: 2px;
-            float: right;
-            margin-left: 0.5vw;
-            cursor: pointer;
-        }
+    .feather {
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
 
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Manrope', sans-serif;
-        }
+    #itemList .feather {
+      width: 1rem;
+      height: 1rem;
+      position: relative;
+      top: 2px;
+      float: right;
+      margin-left: 0.5vw;
+      cursor: pointer;
+    }
 
-        a {
-            color: #fff;
-            text-decoration: none;
-            border-bottom: 1px dotted #fff;
-        }
+    #addButton .feather {
+      width: 1rem;
+      height: 1rem;
+      position: relative;
+      top: 2px;
+    }
 
-        header,
-        footer {
-            padding: 0.4rem;
-            position: fixed;
-            right: 0;
-            left: 0;
-            background: #4285F4;
-            color: #fff;
-        }
+    #advancedSetup .feather {
+      width: 1rem;
+      height: 1rem;
+      position: relative;
+      top: 4px;
+    }
 
-        header {
-            padding: 0.8rem;
-            line-height: 2rem;
-            font-size: 2rem;
-            top: 0;
-        }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
 
-        footer {
-            line-height: 0.7rem;
-            font-size: 0.7rem;
-            bottom: 0;
-        }
+    a {
+      color: #fff;
+      text-decoration: none;
+      border-bottom: 1px dotted #fff;
+    }
 
-        content {
-            /* background: rgba(255,0,0,0.4); */
-            background: #fafafa;
-            position: fixed;
-            top: 3.6rem;
-            right: 0;
-            bottom: 1.5rem;
-            left: 0;
-            padding: 0.8vw 1.4vw;
-            overflow-y: auto;
-        }
+    header,
+    footer {
+      padding: 0.4rem;
+      position: fixed;
+      right: 0;
+      left: 0;
+      background: #4285F4;
+      color: #fff;
+    }
 
-        content ul {
-            margin: 0;
-            padding: 0;
-        }
+    header {
+      padding: 0.8rem;
+      line-height: 2rem;
+      font-size: 2rem;
+      top: 0;
+    }
 
-        content li {
-            font-size: 1rem;
-            display: inline-block;
-            border-radius: 4px;
-            box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, .12);
-            padding: 16px;
-            margin: 0.6vw 1vw;
-            background: #fff;
-        }
+    footer {
+      line-height: 1rem;
+      font-size: 0.7rem;
+      bottom: 0;
+    }
 
-        content #inputHelper {
-            font-size: 1rem;
-            margin-bottom: 12px;
-        }
+    content {
+      background: #fafafa;
+      position: fixed;
+      top: 3.6rem;
+      right: 0;
+      bottom: 2.8rem;
+      left: 0;
+      padding: 0.8vw 1.4vw;
+      overflow-y: auto;
+    }
 
-        content input[type=text] {
-            padding: 0.4vw;
-            width: 100%;
-            border-radius: 4px;
-            font-size: 1rem;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            margin-bottom: 16px
-        }
+    content ul {
+      margin: 0;
+      padding: 0;
+    }
 
-        .lds-ellipsis {
-            display: inline-block;
-            position: relative;
-            width: 80px;
-            height: 80px;
-        }
+    content li {
+      font-size: 1rem;
+      display: inline-block;
+      border-radius: 4px;
+      box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, .12);
+      padding: 16px;
+      margin: 0.6vw 1vw;
+      background: #fff;
+    }
 
-        .lds-ellipsis div {
-            position: absolute;
-            top: 33px;
-            width: 13px;
-            height: 13px;
-            border-radius: 50%;
-            background: #000;
-            animation-timing-function: cubic-bezier(0, 1, 1, 0);
-        }
+    content #inputHelper {
+      font-size: 1rem;
+      margin-bottom: 12px;
+    }
 
-        .lds-ellipsis div:nth-child(1) {
-            left: 8px;
-            animation: lds-ellipsis1 0.6s infinite;
-        }
+    content input[type=text] {
+      padding: 0.4vw;
+      width: 94.5%;
+      border-radius: 4px;
+      font-size: 1rem;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      margin-bottom: 16px;
+      box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, .12);
+    }
 
-        .lds-ellipsis div:nth-child(2) {
-            left: 8px;
-            animation: lds-ellipsis2 0.6s infinite;
-        }
+    content input[type=text]#new-entry-gtm-ids {
+      width: 100%;
+    }
 
-        .lds-ellipsis div:nth-child(3) {
-            left: 32px;
-            animation: lds-ellipsis2 0.6s infinite;
-        }
+    #addButton {
+      width: 5%;
+      padding: 0.4vw;
+      background: #4285F4;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 1rem;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      float: right;
+      box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, .12);
+    }
 
-        .lds-ellipsis div:nth-child(4) {
-            left: 56px;
-            animation: lds-ellipsis3 0.6s infinite;
-        }
+    #errorMessage {
+      color: red;
+      margin-bottom: 10px;
+      font-weight: 600;
+      padding-left: 10px;
+    }
 
-        @keyframes lds-ellipsis1 {
-            0% {
-                transform: scale(0);
-            }
+    .lds-ellipsis {
+      display: inline-block;
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
 
-            100% {
-                transform: scale(1);
-            }
-        }
+    .lds-ellipsis div {
+      position: absolute;
+      top: 33px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #000;
+      animation-timing-function: cubic-bezier(0, 1, 1, 0);
+    }
 
-        @keyframes lds-ellipsis3 {
-            0% {
-                transform: scale(1);
-            }
+    .lds-ellipsis div:nth-child(1) {
+      left: 8px;
+      animation: lds-ellipsis1 0.6s infinite;
+    }
 
-            100% {
-                transform: scale(0);
-            }
-        }
+    .lds-ellipsis div:nth-child(2) {
+      left: 8px;
+      animation: lds-ellipsis2 0.6s infinite;
+    }
 
-        @keyframes lds-ellipsis2 {
-            0% {
-                transform: translate(0, 0);
-            }
+    .lds-ellipsis div:nth-child(3) {
+      left: 32px;
+      animation: lds-ellipsis2 0.6s infinite;
+    }
 
-            100% {
-                transform: translate(24px, 0);
-            }
-        }
-    </style>
+    .lds-ellipsis div:nth-child(4) {
+      left: 56px;
+      animation: lds-ellipsis3 0.6s infinite;
+    }
+
+    @keyframes lds-ellipsis1 {
+      0% {
+        transform: scale(0);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes lds-ellipsis3 {
+      0% {
+        transform: scale(1);
+      }
+
+      100% {
+        transform: scale(0);
+      }
+    }
+
+    @keyframes lds-ellipsis2 {
+      0% {
+        transform: translate(0, 0);
+      }
+
+      100% {
+        transform: translate(24px, 0);
+      }
+    }
+
+    #openAdvancedSetup {
+      cursor: pointer;
+      margin-top: 16px;
+    }
+  </style>
 </head>
 
 <body>
-    <header>
-        GTM Cookie Sync - v1.0.0
-    </header>
-    <content>
-        <div id="inputHelper">Add new URL:</div>
-        <input type="text" id="new-entry" placeholder="protocol://domain.tld, f.e. https://google.com" />
-        <span style="font-size:0.4vw;float:right">Press enter to submit</span>
-        <hr />
-        <ul id="itemList"></ul>
-        <div class="lds-ellipsis">
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-        </div>
-    </content>
-    <footer>
-        <a href="https://github.com/blaumedia/go-gtm-ga-proxy" target="_blank">View the source on GitHub.</a>
-    </footer>
-    <script src="options.js"></script>
+  <header>
+    GTM Cookie Sync - v1.0.0
+  </header>
+  <content>
+    <div id="inputHelper">Add new URL:</div>
+    <div id="errorMessage"></div>
+    <div style="clear:both">
+      <input type="text" tabindex="1" id="new-entry" placeholder="protocol://domain.tld, f.e. https://google.com" />
+      <button id="addButton" tabindex="3"><i data-feather="plus"></i> Add</button>
+    </div>
+    <div id="advancedSetup">
+      <div id="advancedSetupSettings" style="display:none">
+        <input type="text" tabindex="2" id="new-entry-gtm-ids"
+          placeholder="Comma-separated GTM-IDs without beginning 'GTM-', f.e. 56VXSSC" /><br />
+        The domain will only receive the authentication cookies (needed to enable preview mode) for the specified GTM
+        ID(s). Intended for agencies that work with multiple clients to prevent leaking of preview modes between
+        clients.
+      </div>
+      <div id="openAdvancedSetup">Advanced setup <i data-feather="chevrons-down"></i></div>
+    </div>
+    <hr />
+    <ul id="itemList"></ul>
+    <div class="lds-ellipsis">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+  </content>
+  <footer>
+    <a href="https://github.com/blaumedia/go-gtm-ga-proxy" target="_blank">View the source on GitHub.</a>&nbsp;<a
+      href="https://github.com/blaumedia/go-gtm-ga-proxy/issues" target="_blank">You can submit bugs or receive
+      support here.</a>
+    <div class="google-trademark">&copy;2018 Google LLC All rights reserved. Google Tag Manager is a trademark of Google LLC. This chrome extension does not stand in association with Google LLC.</div>
+  </footer>
+  <script src="assets/feather.js"></script>
+  <script src="options.js"></script>
 </body>
 
 </html>
