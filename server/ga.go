@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/tdewolff/minify/v2"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -86,13 +88,13 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		JsSubdirectoryWithoutLeadingSlash = JsSubdirectoryWithoutLeadingSlash[1:]
 
 		re := regexp.MustCompile(`googletagmanager.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
 		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`analytics.js`)
 		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaFilename))
@@ -109,6 +111,27 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		re = regexp.MustCompile(`\"/collect`)
 		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpoint))
 
+		if JsEnableMinify {
+			m := minify.New()
+			m.AddCmd(`application/javascript`, exec.Command("uglifyjs"))
+
+			var previousLengthOfJs int
+			if DebugOutput {
+				previousLengthOfJs = len(body)
+			}
+
+			body, err = m.Bytes(`application/javascript`, body)
+			if err != nil {
+				panic(err)
+			}
+
+			if DebugOutput {
+				afterLengthOfJs := len(body)
+				compressChange := fmt.Sprintf(`%f`, (float64(previousLengthOfJs-afterLengthOfJs)/float64(previousLengthOfJs))*float64(100))
+				fmt.Println(`Compressed the Google Analytics JS File and reduced it by ` + compressChange + `%.`)
+			}
+		}
+
 		if resp.StatusCode == 200 {
 			srcCachePointer.headers = resp.Header
 			srcCachePointer.src = body
@@ -121,7 +144,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		usedCache = false
 	}
 
-	if strings.ToLower(EnableServerSideGaCookies) == "true" || EnableServerSideGaCookies == "1" {
+	if EnableServerSideGaCookies {
 		cookieContent, errCookie := r.Cookie(ServerSideGaCookieName)
 
 		var newCookieContent string
@@ -147,16 +170,12 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 			}
 		}
 
-		if strings.ToLower(CookieSecure) == "true" || CookieSecure == "1" {
+		if CookieSecure {
 			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
-		} else if strings.ToLower(CookieSecure) == "false" || CookieSecure == "0" {
+		} else {
 			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
-		} else {
-			fmt.Println(`ERROR: Environment variable 'GA_SERVER_SIDE_COOKIE_SECURE' is not true/false or 1/0. Falling back to true.`)
-			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
-			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
 		}
 	}
 
@@ -166,6 +185,10 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		w.Header().Add(`X-Cache-Hit`, `true`)
 	} else {
 		w.Header().Add(`X-Cache-Hit`, `false`)
+	}
+
+	for _, f := range pluginEngine.dispatcher[`after_ga_js`] {
+		f(&w, r, &statusCodeToReturn, &sourceCodeToReturn)
 	}
 
 	w.WriteHeader(statusCodeToReturn)

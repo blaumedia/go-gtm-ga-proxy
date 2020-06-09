@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/tdewolff/minify/v2"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -16,12 +18,13 @@ type gtmSourceCodeCache struct {
 	headers    http.Header
 }
 
-var srcGtmCache = gtmSourceCodeCache{lastUpdate: 0}
+var srcGtmCache = make(map[string]gtmSourceCodeCache)
 
 func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 	var GtmContainerID string
 	var GtmDatalayerVar string
 	var GtmCookies []string
+	var GtmCache gtmSourceCodeCache
 
 	var sourceCodeToReturn []byte
 	var statusCodeToReturn int = 200
@@ -36,6 +39,14 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`No get-parameter 'id' set.`))
 
 		return
+	}
+
+	GtmCache, CacheExists := srcGtmCache[GtmContainerID]
+
+	if CacheExists == false {
+		srcGtmCache[GtmContainerID] = gtmSourceCodeCache{lastUpdate: 0}
+
+		GtmCache, _ = srcGtmCache[GtmContainerID]
 	}
 
 	if innerID, ok := r.URL.Query()[`l`]; ok {
@@ -59,9 +70,9 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(GtmCookies) == 0 && srcGtmCache.lastUpdate > (time.Now().Unix()-GtmCacheTime) {
-		sourceCodeToReturn = srcGtmCache.src
-		headersToReturn = srcGtmCache.headers
+	if len(GtmCookies) == 0 && GtmCache.lastUpdate > (time.Now().Unix()-GtmCacheTime) {
+		sourceCodeToReturn = GtmCache.src
+		headersToReturn = GtmCache.headers
 		usedCache = true
 	} else {
 		client := &http.Client{}
@@ -97,13 +108,13 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		JsSubdirectoryWithoutLeadingSlash = JsSubdirectoryWithoutLeadingSlash[1:]
 
 		re := regexp.MustCompile(`googletagmanager.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
 		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURL))
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`analytics.js`)
 		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaFilename))
@@ -111,16 +122,40 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		re = regexp.MustCompile(`u\/analytics_debug.js`)
 		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaDebugFilename))
 
+		if JsEnableMinify {
+			m := minify.New()
+			m.AddCmd(`application/javascript`, exec.Command("uglifyjs"))
+
+			var previousLengthOfJs int
+			if DebugOutput {
+				previousLengthOfJs = len(body)
+			}
+
+			body, err = m.Bytes(`application/javascript`, body)
+			if err != nil {
+				panic(err)
+			}
+
+			if DebugOutput {
+				afterLengthOfJs := len(body)
+				compressChange := fmt.Sprintf(`%f`, (float64(previousLengthOfJs-afterLengthOfJs)/float64(previousLengthOfJs))*float64(100))
+				fmt.Println(`Compressed the Google Tag Manager JS File of ID ` + GtmContainerID + ` and reduced it by ` + compressChange + `%.`)
+			}
+		}
+
 		if resp.StatusCode == 200 && len(GtmCookies) == 0 {
-			srcGtmCache.headers = resp.Header
-			srcGtmCache.src = body
-			srcGtmCache.lastUpdate = time.Now().Unix()
+			GtmCache.headers = resp.Header
+			GtmCache.src = body
+			GtmCache.lastUpdate = time.Now().Unix()
 		}
 
 		headersToReturn = resp.Header
 		statusCodeToReturn = resp.StatusCode
 		sourceCodeToReturn = body
 		usedCache = false
+
+		// Reassigning the copy of the struct back to map
+		srcGtmCache[GtmContainerID] = GtmCache
 	}
 
 	setResponseHeaders(w, headersToReturn)
@@ -129,6 +164,10 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add(`X-Cache-Hit`, `true`)
 	} else {
 		w.Header().Add(`X-Cache-Hit`, `false`)
+	}
+
+	for _, f := range pluginEngine.dispatcher[`after_gtm_js`] {
+		f(&w, r, &statusCodeToReturn, &sourceCodeToReturn)
 	}
 
 	w.WriteHeader(statusCodeToReturn)
