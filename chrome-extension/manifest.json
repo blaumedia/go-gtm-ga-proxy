@@ -1,6 +1,6 @@
 {
   "name": "GTM-Cookie-Sync",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Sync for Go-Gtm-Ga-Proxy; https://github.com/blaumedia/go-gtm-ga-proxy",
   "permissions": [
     "cookies",

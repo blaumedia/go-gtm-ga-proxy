@@ -1,3 +1,13 @@
+chrome.runtime.onInstalled.addListener(function (details) {
+  chrome.storage.sync.get('GTM_SYNC_URIS', function (items) {
+    if (!('GTM_SYNC_URIS' in items)) {
+      chrome.storage.sync.set({
+        GTM_SYNC_URIS: [],
+      });
+    }
+  });
+});
+
 chrome.cookies.onChanged.addListener(function (changeInfo) {
   if (
     changeInfo.cookie.domain === 'www.googletagmanager.com' &&
