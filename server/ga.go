@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/tdewolff/minify/v2"
 	"io/ioutil"
@@ -219,12 +220,17 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 }
 
 func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
+	var redirectURL *url.URL
+
 	if r.Method != `GET` && r.Method != `POST` {
 		fmt.Println(`ERROR: Connection to collect endpoint through ` + r.Method + ` method. Aborting.`)
 		return
 	}
 
 	client := &http.Client{}
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return errors.New("Redirect")
+	}
 	clientURL := ``
 
 	switch r.URL.Path {
@@ -338,21 +344,31 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(`Experienced problems on redirecting collect to google. Aborting.`)
+		if resp.StatusCode == http.StatusFound {
+			redirectURL, _ = resp.Location()
+		} else {
+			fmt.Println(`Experienced problems on redirecting collect to google. Aborting.`)
 
-		return
+			return
+		}
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(`Experienced problems on redirecting collect to google. Aborting.`)
 
-		return
+	if redirectURL != nil {
+		fmt.Println(`Detected Redirect from Google Measurement Protocol (probably Google Ads). Redirecting to: ` + redirectURL.String())
+		http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+	} else {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println(`Experienced problems on redirecting collect to google. Aborting.`)
+
+			return
+		}
+
+		w.WriteHeader(resp.StatusCode)
+		setResponseHeaders(w, resp.Header)
+
+		w.Write([]byte(body))
 	}
-
-	setResponseHeaders(w, resp.Header)
-	w.WriteHeader(resp.StatusCode)
-
-	w.Write([]byte(body))
 }
