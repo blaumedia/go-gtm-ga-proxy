@@ -47,18 +47,34 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 	}
 
 	if srcCachePointer.lastUpdate > (time.Now().Unix() - GaCacheTime) {
+		if DebugOutput {
+			fmt.Println(`Fetching GA-JS Request from Cache...`)
+		}
+
 		sourceCodeToReturn = srcCachePointer.src
 		headersToReturn = srcCachePointer.headers
 		usedCache = true
 	} else {
+		if DebugOutput {
+			fmt.Println(`Refreshing Cache for GA-JS Request...`)
+		}
+
 		client := &http.Client{}
 
 		var req *http.Request
 		var err error
 		if debug == false {
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics.js`, nil)
+
+			if DebugOutput {
+				fmt.Println(`REQUESTING: https://www.google-analytics.com/analytics.js`)
+			}
 		} else {
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics_debug.js`, nil)
+
+			if DebugOutput {
+				fmt.Println(`REQUESTING: https://www.google-analytics.com/analytics_debug.js`)
+			}
 		}
 
 		if err != nil {
@@ -91,7 +107,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
-		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
@@ -171,9 +187,15 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		}
 
 		if CookieSecure {
+			if DebugOutput {
+				fmt.Println(`Set-Cookie: ` + ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + CookieDomain + `; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			}
 			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
 		} else {
+			if DebugOutput {
+				fmt.Println(`Set-Cookie: ` + ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + CookieDomain + `; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			}
 			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
 		}
@@ -238,6 +260,12 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if DebugOutput {
+		fmt.Println(`Collect-Redirect:`)
+		fmt.Println(`Payload:`)
+		fmt.Println(bodyPayload)
+	}
+
 	var formatPayLoad string
 
 	for k, v := range bodyPayload {
@@ -288,13 +316,19 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
-		fmt.Println(clientURL + `?` + formatPayLoad)
+		if DebugOutput {
+			fmt.Println(clientURL + `?` + formatPayLoad)
+		}
 	case `POST`:
 		req, err = http.NewRequest(`POST`, clientURL, bytes.NewBuffer([]byte(formatPayLoad)))
 		if err != nil {
 			fmt.Println(`Experienced problems on redirecting collect to google (POST). Aborting.`)
 
 			return
+		}
+		if DebugOutput {
+			fmt.Println(`Format Payload:`)
+			fmt.Println(formatPayLoad)
 		}
 	}
 

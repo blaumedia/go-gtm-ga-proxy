@@ -22,7 +22,7 @@ var srcGtmCache = make(map[string]gtmSourceCodeCache)
 
 func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 	var GtmContainerID string
-	var GtmDatalayerVar string
+	var GtmURLAddition string
 	var GtmCookies []string
 	var GtmCache gtmSourceCodeCache
 
@@ -32,7 +32,11 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 	var usedCache bool
 
 	if innerID, ok := r.URL.Query()[`id`]; ok {
-		GtmContainerID = innerID[0]
+		if innerID[0][:4] == `GTM-` {
+			GtmContainerID = innerID[0][4:]
+		} else {
+			GtmContainerID = innerID[0]
+		}
 	} else {
 		fmt.Println(`No get-parameter 'id' set.`)
 
@@ -41,19 +45,21 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	GtmCache, CacheExists := srcGtmCache[GtmContainerID]
+	for URLKey, URLValue := range r.URL.Query() {
+		if URLKey != `id` {
+			GtmURLAddition = GtmURLAddition + `&` + URLKey + URLValue[0]
+		}
+	}
+
+	GtmCache, CacheExists := srcGtmCache[GtmContainerID+GtmURLAddition]
 
 	if CacheExists == false {
-		srcGtmCache[GtmContainerID] = gtmSourceCodeCache{lastUpdate: 0}
+		srcGtmCache[GtmContainerID+GtmURLAddition] = gtmSourceCodeCache{lastUpdate: 0}
 
-		GtmCache, _ = srcGtmCache[GtmContainerID]
+		GtmCache, _ = srcGtmCache[GtmContainerID+GtmURLAddition]
 	}
 
-	if innerID, ok := r.URL.Query()[`l`]; ok {
-		GtmDatalayerVar = `&l=` + innerID[0]
-	}
-
-	if !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0]) {
+	if !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0]) && !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0][4:]) {
 		fmt.Println(`Tried to open disallowed GTM ID: ` + r.URL.Query()[`id`][0])
 
 		w.Write([]byte(`ID (` + r.URL.Query()[`id`][0] + `) needs to be whitelisted.`))
@@ -77,7 +83,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 	} else {
 		client := &http.Client{}
 
-		req, err := http.NewRequest(`GET`, `https://www.googletagmanager.com/gtm.js?id=GTM-`+GtmContainerID+GtmDatalayerVar, nil)
+		req, err := http.NewRequest(`GET`, `https://www.googletagmanager.com/gtm.js?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
 		if err != nil {
 			fmt.Println(`Experienced problems on requesting gtm.js from google. Aborting.`)
 
@@ -111,7 +117,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
-		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
@@ -155,7 +161,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		usedCache = false
 
 		// Reassigning the copy of the struct back to map
-		srcGtmCache[GtmContainerID] = GtmCache
+		srcGtmCache[GtmContainerID+GtmURLAddition] = GtmCache
 	}
 
 	setResponseHeaders(w, headersToReturn)
