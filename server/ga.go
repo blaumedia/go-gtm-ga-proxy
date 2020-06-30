@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,7 @@ type gaSourceCodeCache struct {
 	lastUpdate int64
 	src        []byte
 	headers    http.Header
+	mux        sync.Mutex
 }
 
 var (
@@ -47,7 +49,25 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		srcCachePointer = &srcGaCache
 	}
 
+	if DebugOutput {
+		fmt.Println(`Locking Cache MUX`)
+	}
+
+	srcCachePointer.mux.Lock()
+
+	if DebugOutput {
+		fmt.Println(`Locked Cache MUX`)
+	}
+
 	if srcCachePointer.lastUpdate > (time.Now().Unix() - GaCacheTime) {
+		if DebugOutput {
+			fmt.Println(`Unlocking Cache MUX (Cache)`)
+		}
+		srcCachePointer.mux.Unlock()
+		if DebugOutput {
+			fmt.Println(`Unlocked Cache MUX (Cache)`)
+		}
+
 		if DebugOutput {
 			fmt.Println(`Fetching GA-JS Request from Cache...`)
 		}
@@ -159,6 +179,16 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		statusCodeToReturn = resp.StatusCode
 		sourceCodeToReturn = body
 		usedCache = false
+
+		if DebugOutput {
+			fmt.Println(`Unlocking Cache MUX (No-Cache)`)
+		}
+
+		srcCachePointer.mux.Unlock()
+
+		if DebugOutput {
+			fmt.Println(`Unlocked Cache MUX (No-Cache)`)
+		}
 	}
 
 	if EnableServerSideGaCookies {

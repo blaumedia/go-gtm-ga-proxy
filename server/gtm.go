@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type gtmSourceCodeCache struct {
 	lastUpdate int64
 	src        []byte
 	headers    http.Header
+	mux        sync.Mutex
 }
 
 var srcGtmCache = make(map[string]gtmSourceCodeCache)
@@ -47,7 +49,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 
 	for URLKey, URLValue := range r.URL.Query() {
 		if URLKey != `id` {
-			GtmURLAddition = GtmURLAddition + `&` + URLKey + URLValue[0]
+			GtmURLAddition = GtmURLAddition + `&` + URLKey + `=` + URLValue[0]
 		}
 	}
 
@@ -76,11 +78,33 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if DebugOutput {
+		fmt.Println(`Locking Cache MUX`)
+	}
+
+	GtmCache.mux.Lock()
+
+	if DebugOutput {
+		fmt.Println(`Locked Cache MUX`)
+	}
+
 	if len(GtmCookies) == 0 && GtmCache.lastUpdate > (time.Now().Unix()-GtmCacheTime) {
+		if DebugOutput {
+			fmt.Println(`Unlocking Cache MUX (Cache)`)
+		}
+		GtmCache.mux.Unlock()
+		if DebugOutput {
+			fmt.Println(`Unlocked Cache MUX (Cache)`)
+		}
+
 		sourceCodeToReturn = GtmCache.src
 		headersToReturn = GtmCache.headers
 		usedCache = true
 	} else {
+		if DebugOutput {
+			fmt.Println(`Requesting: https://www.googletagmanager.com/gtm.js?id=GTM-` + GtmContainerID + GtmURLAddition)
+		}
+
 		client := &http.Client{}
 
 		req, err := http.NewRequest(`GET`, `https://www.googletagmanager.com/gtm.js?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
@@ -159,6 +183,14 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		statusCodeToReturn = resp.StatusCode
 		sourceCodeToReturn = body
 		usedCache = false
+
+		if DebugOutput {
+			fmt.Println(`Unlocking Cache MUX (Cache)`)
+		}
+		GtmCache.mux.Unlock()
+		if DebugOutput {
+			fmt.Println(`Unlocked Cache MUX (Cache)`)
+		}
 
 		// Reassigning the copy of the struct back to map
 		srcGtmCache[GtmContainerID+GtmURLAddition] = GtmCache
