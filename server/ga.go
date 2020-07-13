@@ -26,44 +26,50 @@ type gaSourceCodeCache struct {
 	mux        sync.Mutex
 }
 
-var (
-	srcGaCache      = gaSourceCodeCache{lastUpdate: 0}
-	srcGaDebugCache = gaSourceCodeCache{lastUpdate: 0}
-)
+var srcGaCache = make(map[string]gaSourceCodeCache)
+var gaMapSync sync.Mutex
+
+// var (
+// 	srcGaCache      = gaSourceCodeCache{lastUpdate: 0}
+// 	srcGaDebugCache = gaSourceCodeCache{lastUpdate: 0}
+// )
 
 func generateGACookie() string {
 	rand.Seed(time.Now().UnixNano())
 	return `GA` + GaCookieVersion + `.2.` + strconv.FormatInt(int64(rand.Intn(888888888)+111111111), 10) + `.` + strconv.FormatInt(time.Now().Unix(), 10)
 }
 
-func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool) {
+func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string) {
 	var sourceCodeToReturn []byte
 	var statusCodeToReturn int = 200
 	var headersToReturn http.Header
 	var usedCache bool
-	var srcCachePointer *gaSourceCodeCache
 
-	if debug {
-		srcCachePointer = &srcGaDebugCache
-	} else {
-		srcCachePointer = &srcGaCache
+	GaCache, CacheExists := srcGaCache[path]
+
+	if CacheExists == false {
+		gaMapSync.Lock()
+		srcGaCache[path] = gaSourceCodeCache{lastUpdate: 0}
+		gaMapSync.Unlock()
+
+		GaCache, _ = srcGaCache[path]
 	}
 
 	if DebugOutput {
 		fmt.Println(`Locking Cache MUX`)
 	}
 
-	srcCachePointer.mux.Lock()
+	GaCache.mux.Lock()
 
 	if DebugOutput {
 		fmt.Println(`Locked Cache MUX`)
 	}
 
-	if srcCachePointer.lastUpdate > (time.Now().Unix() - GaCacheTime) {
+	if GaCache.lastUpdate > (time.Now().Unix() - GaCacheTime) {
 		if DebugOutput {
 			fmt.Println(`Unlocking Cache MUX (Cache)`)
 		}
-		srcCachePointer.mux.Unlock()
+		GaCache.mux.Unlock()
 		if DebugOutput {
 			fmt.Println(`Unlocked Cache MUX (Cache)`)
 		}
@@ -72,8 +78,8 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 			fmt.Println(`Fetching GA-JS Request from Cache...`)
 		}
 
-		sourceCodeToReturn = srcCachePointer.src
-		headersToReturn = srcCachePointer.headers
+		sourceCodeToReturn = GaCache.src
+		headersToReturn = GaCache.headers
 		usedCache = true
 	} else {
 		if DebugOutput {
@@ -84,17 +90,31 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 
 		var req *http.Request
 		var err error
-		if debug == false {
+
+		switch path {
+		case `default`:
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics.js`, nil)
 
 			if DebugOutput {
 				fmt.Println(`REQUESTING: https://www.google-analytics.com/analytics.js`)
 			}
-		} else {
+		case `debug`:
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics_debug.js`, nil)
 
 			if DebugOutput {
 				fmt.Println(`REQUESTING: https://www.google-analytics.com/analytics_debug.js`)
+			}
+		default:
+			re := regexp.MustCompile(GaPluginsDirectoryname)
+			pathTranslated := re.ReplaceAll([]byte(path), []byte(`/plugins/`))
+
+			re = regexp.MustCompile(`(.*)?(\/plugins\/.*\.js)(.*)?`)
+			pathRequest := re.FindStringSubmatch(string(pathTranslated[:]))
+
+			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com`+pathRequest[2], nil)
+
+			if DebugOutput {
+				fmt.Println(`REQUESTING: https://www.google-analytics.com` + pathRequest[2])
 			}
 		}
 
@@ -121,23 +141,20 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 			return
 		}
 
-		JsSubdirectoryWithoutLeadingSlash := []rune(JsSubdirectory)
-		JsSubdirectoryWithoutLeadingSlash = JsSubdirectoryWithoutLeadingSlash[1:]
-
 		re := regexp.MustCompile(`googletagmanager.com`)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
-		body = re.ReplaceAll([]byte(body), []byte(`/`+string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+JsSubdirectory[1:]+GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`analytics.js`)
-		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaFilename))
+		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaFilename))
 
 		re = regexp.MustCompile(`u\/analytics_debug.js`)
-		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaDebugFilename))
+		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaDebugFilename))
 
 		re = regexp.MustCompile(`\"/r\/collect`)
 		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointRedirect))
@@ -147,6 +164,9 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 
 		re = regexp.MustCompile(`\"/collect`)
 		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpoint))
+
+		re = regexp.MustCompile(`\/plugins\/`)
+		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory+GaPluginsDirectoryname[1:]))
 
 		if JsEnableMinify {
 			m := minify.New()
@@ -170,9 +190,9 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 		}
 
 		if resp.StatusCode == 200 {
-			srcCachePointer.headers = resp.Header
-			srcCachePointer.src = body
-			srcCachePointer.lastUpdate = time.Now().Unix()
+			GaCache.headers = resp.Header
+			GaCache.src = body
+			GaCache.lastUpdate = time.Now().Unix()
 		}
 
 		headersToReturn = resp.Header
@@ -184,11 +204,16 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, debug bool)
 			fmt.Println(`Unlocking Cache MUX (No-Cache)`)
 		}
 
-		srcCachePointer.mux.Unlock()
+		GaCache.mux.Unlock()
 
 		if DebugOutput {
 			fmt.Println(`Unlocked Cache MUX (No-Cache)`)
 		}
+
+		// Reassigning the copy of the struct back to map
+		gaMapSync.Lock()
+		srcGaCache[path] = GaCache
+		gaMapSync.Unlock()
 	}
 
 	if EnableServerSideGaCookies {
@@ -292,7 +317,12 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		for _, item := range postPayload {
 			itemParsed := re.FindStringSubmatch(item)
 
-			bodyPayload[itemParsed[1]] = itemParsed[2]
+			switch len(itemParsed) {
+			case 2:
+				bodyPayload[itemParsed[1]] = ``
+			case 3:
+				bodyPayload[itemParsed[1]] = itemParsed[2]
+			}
 		}
 	}
 

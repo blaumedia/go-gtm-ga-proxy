@@ -21,8 +21,9 @@ type gtmSourceCodeCache struct {
 }
 
 var srcGtmCache = make(map[string]gtmSourceCodeCache)
+var gtmMapSync sync.Mutex
 
-func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
+func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string) {
 	var GtmContainerID string
 	var GtmURLAddition string
 	var GtmCookies []string
@@ -34,10 +35,18 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 	var usedCache bool
 
 	if innerID, ok := r.URL.Query()[`id`]; ok {
-		if innerID[0][:4] == `GTM-` {
-			GtmContainerID = innerID[0][4:]
+		if len(innerID[0]) >= 4 {
+			if innerID[0][:4] == `GTM-` {
+				GtmContainerID = innerID[0][4:]
+			} else {
+				GtmContainerID = innerID[0]
+			}
 		} else {
-			GtmContainerID = innerID[0]
+			fmt.Println(`No correct get-parameter 'id' set.`)
+
+			w.Write([]byte(`No correct get-parameter 'id' set.`))
+
+			return
 		}
 	} else {
 		fmt.Println(`No get-parameter 'id' set.`)
@@ -56,15 +65,19 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 	GtmCache, CacheExists := srcGtmCache[GtmContainerID+GtmURLAddition]
 
 	if CacheExists == false {
+		gtmMapSync.Lock()
 		srcGtmCache[GtmContainerID+GtmURLAddition] = gtmSourceCodeCache{lastUpdate: 0}
+		gtmMapSync.Unlock()
 
 		GtmCache, _ = srcGtmCache[GtmContainerID+GtmURLAddition]
 	}
 
-	if !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0]) && !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0][4:]) {
+	if !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0]) && !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0][4:]) && RestrictGtmIds {
 		fmt.Println(`Tried to open disallowed GTM ID: ` + r.URL.Query()[`id`][0])
 
 		w.Write([]byte(`ID (` + r.URL.Query()[`id`][0] + `) needs to be whitelisted.`))
+		setResponseHeaders(w, headersToReturn)
+		w.WriteHeader(404)
 
 		return
 	}
@@ -101,13 +114,31 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		headersToReturn = GtmCache.headers
 		usedCache = true
 	} else {
-		if DebugOutput {
-			fmt.Println(`Requesting: https://www.googletagmanager.com/gtm.js?id=GTM-` + GtmContainerID + GtmURLAddition)
+		client := &http.Client{}
+		var req *http.Request
+		var err error
+
+		switch path {
+		case `default`:
+			if DebugOutput {
+				fmt.Println(`Requesting: https://www.googletagmanager.com/gtm.js?id=GTM-` + GtmContainerID + GtmURLAddition)
+			}
+
+			req, err = http.NewRequest(`GET`, `https://www.googletagmanager.com/gtm.js?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
+		case `default_a`:
+			if DebugOutput {
+				fmt.Println(`Requesting: https://www.googletagmanager.com/a?id=GTM-` + GtmContainerID + GtmURLAddition)
+			}
+
+			req, err = http.NewRequest(`GET`, `https://www.googletagmanager.com/a?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
+		case `gtag`:
+			if DebugOutput {
+				fmt.Println(`Requesting: https://www.googletagmanager.com/gtag/js?id=` + GtmContainerID + GtmURLAddition)
+			}
+
+			req, err = http.NewRequest(`GET`, `https://www.googletagmanager.com/gtag/js?id=`+GtmContainerID+GtmURLAddition, nil)
 		}
 
-		client := &http.Client{}
-
-		req, err := http.NewRequest(`GET`, `https://www.googletagmanager.com/gtm.js?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
 		if err != nil {
 			fmt.Println(`Experienced problems on requesting gtm.js from google. Aborting.`)
 
@@ -134,23 +165,26 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		JsSubdirectoryWithoutLeadingSlash := []rune(JsSubdirectory)
-		JsSubdirectoryWithoutLeadingSlash = JsSubdirectoryWithoutLeadingSlash[1:]
+		re := regexp.MustCompile(`www.googletagmanager.com\/a`)
+		body = re.ReplaceAll([]byte(body), []byte(EndpointURI+`/`+JsSubdirectory[1:]+GtmAFilename))
 
-		re := regexp.MustCompile(`googletagmanager.com`)
+		re = regexp.MustCompile(`(www\.)?googletagmanager.com`)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
-		body = re.ReplaceAll([]byte(body), []byte(`/`+string(JsSubdirectoryWithoutLeadingSlash)+GtmFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+JsSubdirectory[1:]+GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
 		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
 
 		re = regexp.MustCompile(`analytics.js`)
-		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaFilename))
+		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaFilename))
 
 		re = regexp.MustCompile(`u\/analytics_debug.js`)
-		body = re.ReplaceAll([]byte(body), []byte(string(JsSubdirectoryWithoutLeadingSlash)+GaDebugFilename))
+		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaDebugFilename))
+
+		re = regexp.MustCompile(`\/gtag\/js`)
+		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory+GtagFilename))
 
 		if JsEnableMinify {
 			m := minify.New()
@@ -193,7 +227,9 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Reassigning the copy of the struct back to map
+		gtmMapSync.Lock()
 		srcGtmCache[GtmContainerID+GtmURLAddition] = GtmCache
+		gtmMapSync.Unlock()
 	}
 
 	setResponseHeaders(w, headersToReturn)

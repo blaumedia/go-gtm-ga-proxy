@@ -31,11 +31,20 @@ var JsEnableMinify bool
 // GtmFilename is the new public name for the gtm.js file
 var GtmFilename = os.Getenv(`GTM_FILENAME`)
 
+// GtmAFilename is the new public name for the gtm.js file
+var GtmAFilename = os.Getenv(`GTM_A_FILENAME`)
+
 // GaFilename is the new public name for the analytics.js file
 var GaFilename = os.Getenv(`GA_FILENAME`)
 
 // GaDebugFilename is the new public name for the analytics_debug.js file
 var GaDebugFilename = os.Getenv(`GADEBUG_FILENAME`)
+
+// GaPluginsDirectoryname is the new public name for the plugins directory
+var GaPluginsDirectoryname = os.Getenv(`GA_PLUGINS_DIRECTORYNAME`)
+
+// GtagFilename is the new public name for the gtag endpoint
+var GtagFilename = os.Getenv(`GTAG_FILENAME`)
 
 // GaCollectEndpoint is the endpoint for the /collect requests
 var GaCollectEndpoint = os.Getenv(`GA_COLLECT_ENDPOINT`)
@@ -45,6 +54,10 @@ var GaCollectEndpointRedirect = os.Getenv(`GA_COLLECT_REDIRECT_ENDPOINT`)
 
 // GaCollectEndpointJ is the endpoint for the /j/collect requests
 var GaCollectEndpointJ = os.Getenv(`GA_COLLECT_J_ENDPOINT`)
+
+// RestrictGtmIds represents a bool that is set by the environment variable RESTRICT_GTM_IDS
+// to en/disable the GTM restriction to prevent abuse of the proxy.
+var RestrictGtmIds bool
 
 // AllowedGtmIds contains the whitelisted GTM container ids to proxy.
 // Will be processed during main() function.
@@ -92,14 +105,25 @@ func isInSlice(slice []string, val string) bool {
 func javascriptFilesHandle(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case JsSubdirectory + GtmFilename:
-		googleTagManagerHandle(w, r)
+		googleTagManagerHandle(w, r, `default`)
+	case JsSubdirectory + GtmAFilename:
+		googleTagManagerHandle(w, r, `default_a`)
+	case JsSubdirectory + GtagFilename:
+		googleTagManagerHandle(w, r, `gtag`)
 	case JsSubdirectory + GaFilename:
-		googleAnalyticsJsHandle(w, r, false)
+		googleAnalyticsJsHandle(w, r, `default`)
 	case JsSubdirectory + GaDebugFilename:
-		googleAnalyticsJsHandle(w, r, true)
+		googleAnalyticsJsHandle(w, r, `debug`)
 	default:
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`Not found`))
+		if r.URL.Path[:len(JsSubdirectory)+len(GaPluginsDirectoryname)-1] == JsSubdirectory+GaPluginsDirectoryname[1:] {
+			googleAnalyticsJsHandle(w, r, r.URL.Path)
+		} else {
+			fmt.Println(`###################################`)
+			fmt.Println(`404 Page accessed: ` + r.URL.Path)
+			fmt.Println(`###################################`)
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`Not found`))
+		}
 	}
 	return
 }
@@ -141,6 +165,10 @@ func main() {
 
 	if strings.ToLower(os.Getenv(`ENABLE_SERVER_SIDE_GA_COOKIES`)) == `true` || strings.ToLower(os.Getenv(`ENABLE_SERVER_SIDE_GA_COOKIES`)) == `1` {
 		EnableServerSideGaCookies = true
+	}
+
+	if strings.ToLower(os.Getenv(`RESTRICT_GTM_IDS`)) == `true` || strings.ToLower(os.Getenv(`RESTRICT_GTM_IDS`)) == `1` {
+		RestrictGtmIds = true
 	}
 
 	if strings.ToLower(os.Getenv(`COOKIE_SECURE`)) == `true` || strings.ToLower(os.Getenv(`COOKIE_SECURE`)) == `1` {

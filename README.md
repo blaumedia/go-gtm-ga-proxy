@@ -44,8 +44,12 @@ docker run \
     -e GA_CACHE_TIME=3600 \
     -e GTM_CACHE_TIME=3600 \
     -e GTM_FILENAME=gtm.js \
+    -e GTM_A_FILENAME=gtm_a.js \
     -e GA_FILENAME=ga.js \
     -e GADEBUG_FILENAME=ga_debug.js \
+    -e GA_PLUGINS_DIRECTORYNAME=/links/ \
+    -e GTAG_FILENAME=tag.js \
+    -e RESTRICT_GTM_IDS=false \
     -e GTM_IDS=YOUR_GTM_ID_WITHOUT_GTM- \
     -e GA_COLLECT_ENDPOINT=/fetch \
     -e GA_COLLECT_REDIRECT_ENDPOINT=/fetch_r \
@@ -70,8 +74,12 @@ docker run \
 |```GA_CACHE_TIME```|Time in seconds the proxy caches the Google Analytics client javascript.|3600|
 |```GTM_CACHE_TIME```|Time in seconds the proxy caches the Google Tag Manager client javascript.|3600|
 |```GTM_FILENAME```|The filename the GTM javascript file is reachable.|gtm_inject.js|
+|```GTM_A_FILENAME```|The alternative filename the GTM javascript file is reachable. (www.googletagmanager.com/a)|container_a.js|
 |```GA_FILENAME```|The filename the Google Analytics javascript file is reachable.|ga_inject.js|
 |```GADEBUG_FILENAME```|The filename the [Google Analytics debug](https://developers.google.com/analytics/devguides/collection/analyticsjs/debugging) javascript file is reachable.|gadebug_inject.js|
+|```GA_PLUGINS_DIRECTORYNAME```|The directory name where google analytics plugins will be accessable at.|/links/|
+|```GTAG_FILENAME```|The directory name where google analytics plugins will be accessable at.|tag.js|
+|```RESTRICT_GTM_IDS```|Set to true if you want to enable a whitelist for the GTM-IDs.|false|
 |```GTM_IDS```|Here you can setup the whitelist for GTM ids. Comma-separate if you want to add multiple ids. Just put the ids without the leading 'GTM-'.|NNQJ5LT,N5ZZT3|
 |```GA_COLLECT_ENDPOINT```|Set the new name for the /collect endpoint.|/fetch|
 |```GA_COLLECT_REDIRECT_ENDPOINT```|Set the new name for the /r/collect endpoint.|/fetch_r|
@@ -119,7 +127,58 @@ ProxyPass "/goproxy" "http://127.0.0.1:8080"
 Please note that 127.0.0.1 is an example IP in the following configs. Obviously you have to change it to the ip address where the proxy is reachable.
 
 #### nginx
+This vhost configuration for nginx does require the following:
+```bash
+apt-get update && apt-get install openssl certbot
 
+openssl dhparam -out /etc/nginx/dhparam.pem 4096
+certbot certonly --standalone -d gggp.example.com
+```
+
+```nginx
+server {
+        listen 443 ssl http2;
+        listen [::]:443 ssl http2;
+
+        ssl_certificate /etc/letsencrypt/live/gggp.example.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/gggp.example.com/privkey.pem;
+
+        ssl_protocols TLSv1.2;
+        ssl_dhparam /etc/nginx/dhparam.pem;
+        ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+        ssl_prefer_server_ciphers on;
+
+        ssl_ecdh_curve secp384r1;
+
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+
+        ssl_stapling on;
+        ssl_trusted_certificate /etc/letsencrypt/live/gggp.example.com/chain.pem;
+        ssl_stapling_verify on;
+
+        resolver 8.8.8.8;
+
+        server_name gggp.example.com;
+
+        location / {
+                proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header  X-Forwarded-Host $proxy_add_x_forwarded_for;
+
+                proxy_pass http://127.0.0.1:8080/;
+        }
+}
+
+server {
+        listen 80;
+        listen [::]:80;
+
+        server_name gggp.example.com;
+
+        rewrite     ^   https://$server_name$request_uri? permanent;
+}
+```
 
 # go-gtm-ga-proxy
 ### Attention: ALPHA! Under heavy development!
@@ -136,7 +195,7 @@ Bypass any tracking-blocking browser plugins with this first-party-tracking-prox
 - uBlock dataLayer Blocker https://i.blaumedia.com/h6hyn_Fernstudium_f%C3%BCr_Bachelor_und_Master___IUBH_F.png
 - ~Fix Chrome Plugin~
 - Add Debug-Output
-- Implement JS-minifier
+- ~Implement JS-minifier~
 
 ## Client Id Cookie Integration
 ### Direct Google Analytics Integration
