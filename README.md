@@ -383,7 +383,7 @@ Since I use the proxy on various corporate sites with a lot of traffic, I have a
 ## Donate
 If you found this repo useful, please consider a donation. Thank You!
 
-[PayPal](http://paypal.me/3lue)
+[PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7K2542NW63TWQ&source=url)
 
 [Bitcoin: 1BbijSBrwwjjqM2svcACocMW5LksJeVewv](https://www.blockchain.com/btc/address/1BbijSBrwwjjqM2svcACocMW5LksJeVewv)
 
