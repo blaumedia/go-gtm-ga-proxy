@@ -202,6 +202,10 @@ The plugin synchronizes cookies between the googletagmanager.com domain and doma
 
 In addition, there is also the possibility to synchronize only the cookies from specific GTM containers to specific domains. This might be especially relevant for agencies who do not want to leak preview cookies from other customers.
 
+To install the extension you can either clone the repo & import the directory extension directly into chrome or you install the extension from the Chrome Web Store. The source is 100% the same as in this repository.
+
+**[Open in Chrome Web Store.](https://chrome.google.com/webstore/detail/gtm-cookie-sync/jeahakippiaaenjaagcmnmpecaaphcka)**
+
 ## Performance
 I would like to clarify various questions:
 
@@ -374,7 +378,7 @@ To do.
 To do.
 
 ## Support
-Since I use the proxy on various corporate sites with a lot of traffic, I have a great interest in a bug-free experience. So if you notice a bug or error, feel free to create an issue. If you have any questions or problems, you are welcome to create an issue and I will get back to you as soon as possible.
+Since I use the proxy on various corporate sites with a lot of traffic, I have a great interest in a bug-free experience. So if you notice a bug or error, feel free to create an issue or pull request. If you have any questions or problems regarding the proxy, you are welcome to create an issue and I will get back to you as soon as possible.
 
 ## Donate
 If you found this repo useful, please consider a donation. Thank You!
@@ -382,6 +386,8 @@ If you found this repo useful, please consider a donation. Thank You!
 [PayPal](http://paypal.me/3lue)
 
 [Bitcoin: 1BbijSBrwwjjqM2svcACocMW5LksJeVewv](https://www.blockchain.com/btc/address/1BbijSBrwwjjqM2svcACocMW5LksJeVewv)
+
+[Ethereum: 0x6e49adAc9752c293a2B4d244DD0Cb1dc655D536d](https://www.blockchain.com/eth/address/0x6e49adAc9752c293a2B4d244DD0Cb1dc655D536d)
 
 # go-gtm-ga-proxy
 ### Attention: ALPHA! Under heavy development!
