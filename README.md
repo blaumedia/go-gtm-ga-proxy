@@ -28,7 +28,7 @@ To prevent tracking, blockers try to block the URLs of www.googletagmanager.com 
 - Chrome Extension for the trouble-free use of the Google Tag Manager preview mode (see [Chrome Extension](#chrome-extension) for the why)
 - High performant and full RFC compliant thanks to Go and [net/http](https://golang.org/pkg/net/http/)
 - JS minifier for optimizations of up to 30% (thanks to [tdewolff/minify](https://github.com/tdewolff/minify) and [mishoo/UglifyJS](https://github.com/mishoo/UglifyJS))
-- Small 50MB (nice ;)) [ready-2-use](https://hub.docker.com/repository/docker/blaumedia/go-gtm-ga-proxy) docker image for crazy fast deployments, updates and close-to-zero harddrive occupation
+- Small 50MB [ready-2-use](https://hub.docker.com/repository/docker/blaumedia/go-gtm-ga-proxy) docker image for crazy fast deployments, updates and close-to-zero harddrive occupation
 - Many environment variables to adjust the proxy exactly to your needs
 - Expandable through [Plugins](#plugins)
 
@@ -62,7 +62,7 @@ docker run \
     -e COOKIE_DOMAIN=yourdomain.tld \
     -e COOKIE_SECURE=true \
     -p "8080:8080" \
-    blaumedia/go-gtm-ga-proxy:1.0.0
+    blaumedia/go-gtm-ga-proxy:1.0.2
 ```
 
 
@@ -78,7 +78,7 @@ docker run \
 |```GA_FILENAME```|The filename the Google Analytics javascript file is reachable.|ga_inject.js|
 |```GADEBUG_FILENAME```|The filename the [Google Analytics debug](https://developers.google.com/analytics/devguides/collection/analyticsjs/debugging) javascript file is reachable.|gadebug_inject.js|
 |```GA_PLUGINS_DIRECTORYNAME```|The directory name where google analytics plugins will be accessable at.|/links/|
-|```GTAG_FILENAME```|The directory name where google analytics plugins will be accessable at.|tag.js|
+|```GTAG_FILENAME```|The filename where gtag will be accessable at.|tag.js|
 |```RESTRICT_GTM_IDS```|Set to true if you want to enable a whitelist for the GTM-IDs.|false|
 |```GTM_IDS```|Here you can setup the whitelist for GTM ids. Comma-separate if you want to add multiple ids. Just put the ids without the leading 'GTM-'.|NNQJ5LT,N5ZZT3|
 |```GA_COLLECT_ENDPOINT```|Set the new name for the /collect endpoint.|/fetch|
@@ -167,6 +167,7 @@ server {
                 proxy_set_header  X-Forwarded-Host $proxy_add_x_forwarded_for;
 
                 proxy_pass http://127.0.0.1:8080/;
+                proxy_redirect off;
         }
 }
 
@@ -179,6 +180,208 @@ server {
         rewrite     ^   https://$server_name$request_uri? permanent;
 }
 ```
+
+### apache2
+```apache2
+<VirtualHost *:*>
+    ProxyPreserveHost On
+
+    ProxyPass / http://127.0.0.1:8080/
+    ProxyPassReverse / http://127.0.0.1:8080/
+
+    ServerName localhost
+</VirtualHost>
+```
+
+## Chrome Extension
+By activating the server-side cookies you may have noticed that the preview mode of the Google Tag Manager does not work anymore. This is because as a web page visitor, you no longer send cookies directly to the Google Tag Manager domain, but instead they are sent to the proxy. However, when you click the "Preview" button in the Google Tag Manager interface, multiple cookies are set on the Google Tag Manager domain.
+
+To solve this problem, I have created a small extension for Google Chrome that builds a bridge between the proxy and the cookies of the GTM domain. The source code is open-source and publicly available through this GitHub repository in the folder "chrome-extension".
+
+The plugin synchronizes cookies between the googletagmanager.com domain and domains you define. For example, if you make the proxy reachable at proxy.example.com or example.com/proxy, you would need to define example.com as the domain - assuming this is the page the user is visiting.
+
+In addition, there is also the possibility to synchronize only the cookies from specific GTM containers to specific domains. This might be especially relevant for agencies who do not want to leak preview cookies from other customers.
+
+## Performance
+I would like to clarify various questions:
+
+- Does the proxy make my website slower?
+- Is the server scalable?
+- Is this proxy server faster/slower than the one from Zitros?
+
+
+### Does the proxy make my website slower?
+Maybe, but the difference should hardly be measurable. The main factor is the performance of the server you are using. Because the Google servers use HTTP3/QUIC, we will hardly be able to reach the delivery times as long as QUIC is not standardized and implemented in the common web servers.
+The proxy can automatically minimize the JS files and thus reduce the file size by up to 30%. As soon as QUIC is released and runs stable, it will of course be implemented in the proxy.
+
+### Is the server scalable?
+You can start as many of the docker containers as you like and place a simple load balancer in front of them. Container orchestrations like Kubernetes can make the setup much easier. The containers run independently and each creates its own cache.
+
+### Is this proxy server faster/slower than the one from Zitros?
+The fact that the proxy server of Zitros was developed in nodeJS gives the GoGtmGaProxy an amazing benefit in terms of speed and CPU/RAM usage due to the base in Go. NodeJS for example is not multi-core capable - so it is not suitable for sites with a lot of traffic, as we will see below. Before we get to the numbers, it should be mentioned that Zitro's proxy server simply passes the traffic through and searches & replaces text. The GoGtmGaProxy also has the server-side cookies (set at analytics.js), the JS-Minifier and the possibility to be extended with plugins.
+
+For testing I used [siege](https://linux.die.net/man/1/siege); a website stress tool for the command line. Siege was run on a Hetzner server (8C/64GB RAM) and the proxies ran on a Google Compute Engine instance (n1-standard-2). In front of the proxies was a Nginx reverse proxy installed onto the GCE instance.
+
+*I'm aware that this is not a reliable test, but it should show the tendencies of the performance and that's all we want to do at this point.*
+
+I measured with
+```bash
+siege -c 100 --benchmark --time=1m URL
+```
+This means that within one minute with 100 users we try to access the website as often as possible. Important are the metrics Transactions, Availability, Longest Transaction and Shortest Transaction.
+
+I had following docker-compose setup:
+```YAML
+version: '2'
+
+services:
+  web:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./dhparam.pem:/etc/nginx/dhparam.pem:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    environment:
+      - TZ=Europe/Berlin
+  gtmproxy:
+    image: blaumedia/go-gtm-ga-proxy:latest
+    restart: always
+    environment:
+      - ENABLE_DEBUG_OUTPUT=true
+      - JS_MINIFY=true
+      - ENABLE_PLUGINS=false
+      - ENDPOINT_URI=HIDDEN
+      - JS_SUBDIRECTORY=/js/
+      - GTM_FILENAME=inject.js
+      - GTM_A_FILENAME=inject_a.js
+      - GA_FILENAME=catcher.js
+      - GADEBUG_FILENAME=catcher_debug.js
+      - GTAG_FILENAME=tag.js
+      - GA_PLUGINS_DIRECTORYNAME=/links/
+      - GA_COLLECT_ENDPOINT=/fetch
+      - GA_COLLECT_REDIRECT_ENDPOINT=/fetch_r
+      - GA_COLLECT_J_ENDPOINT=/fetch_j
+      - ENABLE_SERVER_SIDE_GA_COOKIES=true
+      - GA_SERVER_SIDE_COOKIE=_gggp
+      - COOKIE_DOMAIN=HIDDEN
+      - COOKIE_SECURE=true
+      - PROXY_IP_HEADER=X-Forwarded-For
+      - PROXY_IP_HEADER_INDEX=0
+      - GA_CACHE_TIME=3600
+      - GTM_CACHE_TIME=3600
+  zitrosgtmproxy:
+    image: zitros/analytics-saviour:latest
+    restart: always
+```
+
+and nginx.conf:
+```nginx
+server {
+        listen 443 ssl http2;
+        listen [::]:443 ssl http2;
+
+        ssl_certificate /etc/letsencrypt/live/HIDDEN/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/HIDDEN/privkey.pem;
+
+        ssl_protocols TLSv1.2;
+        ssl_dhparam /etc/nginx/dhparam.pem;
+        ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+        ssl_prefer_server_ciphers on;
+
+        ssl_ecdh_curve secp384r1;
+
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+
+        ssl_stapling on;
+        ssl_trusted_certificate /etc/letsencrypt/live/HIDDEN/chain.pem;
+        ssl_stapling_verify on;
+
+        resolver 8.8.8.8;
+
+        root /code;
+
+        etag on;
+
+        index index.html index.htm;
+
+        server_name HIDDEN;
+
+        location / {
+                proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header  X-Forwarded-Host $proxy_add_x_forwarded_for;
+
+                proxy_pass http://gtmproxy:8080/;
+                proxy_redirect off;
+        }
+
+        location /zitros/ {
+                proxy_set_header  X-Real-IP $remote_addr;
+                proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header  X-Forwarded-Host $proxy_add_x_forwarded_for;
+
+                proxy_pass http://zitrosgtmproxy:80/;
+                proxy_redirect off;
+        }
+
+        location ~ /\. {
+                deny all;
+        }
+
+        location ~ /\.ht {
+                deny all;
+        }
+}
+
+server {
+        listen 80;
+        listen [::]:80;
+
+        server_name HIDDEN;
+
+        rewrite     ^   https://$server_name$request_uri? permanent;
+}
+```
+#### Analytics (analytics.js)
+
+##### Siege Comparison (Top: GoGtmGaProxy/Bottom: Zitros)
+![Siege Comparison](https://i.blaumedia.com/ns32m_dpaul%40devkiste__~_2020-07-13_17.46.26.png)
+While Zitro's proxy can handle nearly 5700 queries, the GoGtmGaProxy can handle nearly 5000 more. The longest query took 1.87 seconds with Zitro's proxy, while the GoGtmGaProxy took only 0.71 seconds. The fastest response sent by the proxy from Zitros took 0.79 seconds, which is not only slower than the slowest query to the GoGtmGaProxy, but also the fastest response from the GoGtmGaProxy is significantly better at 0.22 seconds.
+##### CPU usage GoGtmGaProxy
+![GoGtmGaProxy CPU](https://i.blaumedia.com/b7ewp_3lueTower%40gogtmgaproxy-1__~_2020-07-13_17.45.png)
+##### CPU usage Zitros
+![Zitros CPU](https://i.blaumedia.com/v0058_3lueTower%40gogtmgaproxy-1__~_2020-07-13_17.40.png)
+Zitro's proxy server blocks an entire core of the server, while the GoGtmGaProxy does not even need a fifth.
+
+#### GTM (gtm.js?id=GTM-NNQ5LT)
+##### Siege Comparison (Top: GoGtmGaProxy/Bottom: Zitros)
+![Siege Comparison](https://i.blaumedia.com/pjj07_dpaul%40devkiste__~_2020-07-13_18.06.42.png)
+##### CPU usage GoGtmGaProxy
+![GoGtmGaProxy CPU](https://i.blaumedia.com/ii166_3lueTower%40gogtmgaproxy-1__~_2020-07-13_18.04.png)
+##### CPU usage Zitros
+![Zitros CPU](https://i.blaumedia.com/jws3l_3lueTower%40gogtmgaproxy-1__~_2020-07-13_18.02.png)
+
+
+## Plugins
+To do.
+
+## To Do
+To do.
+
+## Support
+Since I use the proxy on various corporate sites with a lot of traffic, I have a great interest in a bug-free experience. So if you notice a bug or error, feel free to create an issue. If you have any questions or problems, you are welcome to create an issue and I will get back to you as soon as possible.
+
+## Donate
+If you found this repo useful, please consider a donation. Thank You!
+
+[PayPal](http://paypal.me/3lue)
+
+[Bitcoin: 1BbijSBrwwjjqM2svcACocMW5LksJeVewv](https://www.blockchain.com/btc/address/1BbijSBrwwjjqM2svcACocMW5LksJeVewv)
 
 # go-gtm-ga-proxy
 ### Attention: ALPHA! Under heavy development!
