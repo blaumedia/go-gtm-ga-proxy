@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/tdewolff/minify/v2"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tdewolff/minify/v2"
 )
 
 type gtmSourceCodeCache struct {
@@ -72,7 +73,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		GtmCache, _ = srcGtmCache[GtmContainerID+GtmURLAddition]
 	}
 
-	if !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0]) && !isInSlice(AllowedGtmIds, r.URL.Query()[`id`][0][4:]) && RestrictGtmIds {
+	if !isInSlice(settingsGGGP.AllowedGtmIds, r.URL.Query()[`id`][0]) && !isInSlice(settingsGGGP.AllowedGtmIds, r.URL.Query()[`id`][0][4:]) && settingsGGGP.RestrictGtmIds {
 		fmt.Println(`Tried to open disallowed GTM ID: ` + r.URL.Query()[`id`][0])
 
 		w.Write([]byte(`ID (` + r.URL.Query()[`id`][0] + `) needs to be whitelisted.`))
@@ -91,22 +92,22 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		}
 	}
 
-	if DebugOutput {
+	if settingsGGGP.EnableDebugOutput {
 		fmt.Println(`Locking Cache MUX`)
 	}
 
 	GtmCache.mux.Lock()
 
-	if DebugOutput {
+	if settingsGGGP.EnableDebugOutput {
 		fmt.Println(`Locked Cache MUX`)
 	}
 
-	if len(GtmCookies) == 0 && GtmCache.lastUpdate > (time.Now().Unix()-GtmCacheTime) {
-		if DebugOutput {
+	if len(GtmCookies) == 0 && GtmCache.lastUpdate > (time.Now().Unix()-settingsGGGP.GtmCacheTime) {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocking Cache MUX (Cache)`)
 		}
 		GtmCache.mux.Unlock()
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocked Cache MUX (Cache)`)
 		}
 
@@ -120,19 +121,19 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 
 		switch path {
 		case `default`:
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				fmt.Println(`Requesting: https://www.googletagmanager.com/gtm.js?id=GTM-` + GtmContainerID + GtmURLAddition)
 			}
 
 			req, err = http.NewRequest(`GET`, `https://www.googletagmanager.com/gtm.js?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
 		case `default_a`:
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				fmt.Println(`Requesting: https://www.googletagmanager.com/a?id=GTM-` + GtmContainerID + GtmURLAddition)
 			}
 
 			req, err = http.NewRequest(`GET`, `https://www.googletagmanager.com/a?id=GTM-`+GtmContainerID+GtmURLAddition, nil)
 		case `gtag`:
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				fmt.Println(`Requesting: https://www.googletagmanager.com/gtag/js?id=` + GtmContainerID + GtmURLAddition)
 			}
 
@@ -165,33 +166,37 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 			return
 		}
 
-		re := regexp.MustCompile(`www.googletagmanager.com\/a`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURI+`/`+JsSubdirectory[1:]+GtmAFilename))
+		// It seems like the /a endpoint returns a pixel instead of js code. Temporarily disable proxying for it.
+		// re := regexp.MustCompile(`www.googletagmanager.com\/a`)
+		// body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI+`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtmAFilename))
 
-		re = regexp.MustCompile(`(www\.)?googletagmanager.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
+		re := regexp.MustCompile(`(www\.)?googletagmanager.com`)
+		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
+
+		re = regexp.MustCompile(settingsGGGP.EndpointURI + `\/a`)
+		body = re.ReplaceAll([]byte(body), []byte(`www.googletagmanager.com\/a`))
 
 		re = regexp.MustCompile(`\/gtm.js`)
-		body = re.ReplaceAll([]byte(body), []byte(`/`+JsSubdirectory[1:]+GtmFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
 
-		re = regexp.MustCompile(`analytics.js`)
-		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaFilename))
+		re = regexp.MustCompile(`(\/)?analytics.js`)
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaFilename))
 
 		re = regexp.MustCompile(`u\/analytics_debug.js`)
-		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaDebugFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaDebugFilename))
 
 		re = regexp.MustCompile(`\/gtag\/js`)
-		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory+GtagFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtagFilename))
 
-		if JsEnableMinify {
+		if settingsGGGP.JsEnableMinify {
 			m := minify.New()
 			m.AddCmd(`application/javascript`, exec.Command("uglifyjs"))
 
 			var previousLengthOfJs int
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				previousLengthOfJs = len(body)
 			}
 
@@ -200,7 +205,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 				panic(err)
 			}
 
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				afterLengthOfJs := len(body)
 				compressChange := fmt.Sprintf(`%f`, (float64(previousLengthOfJs-afterLengthOfJs)/float64(previousLengthOfJs))*float64(100))
 				fmt.Println(`Compressed the Google Tag Manager JS File of ID ` + GtmContainerID + ` and reduced it by ` + compressChange + `%.`)
@@ -218,11 +223,11 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		sourceCodeToReturn = body
 		usedCache = false
 
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocking Cache MUX (Cache)`)
 		}
 		GtmCache.mux.Unlock()
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocked Cache MUX (Cache)`)
 		}
 
@@ -240,7 +245,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		w.Header().Add(`X-Cache-Hit`, `false`)
 	}
 
-	for _, f := range pluginEngine.dispatcher[`after_gtm_js`] {
+	for _, f := range settingsGGGP.pluginEngine.dispatcher[`after_gtm_js`] {
 		f(&w, r, &statusCodeToReturn, &sourceCodeToReturn)
 	}
 

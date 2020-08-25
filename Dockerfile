@@ -30,12 +30,16 @@ ENV APP_VERSION ${BUILD_VERSION}
 # Using port 8080 because we won't run the application as root
 EXPOSE 8080
 
-RUN apk --no-cache add ca-certificates uglify-js
+RUN apk --no-cache add ca-certificates uglify-js curl
 
 RUN addgroup -S docker -g 433 && \
     adduser -u 431 -S -g docker -h /app -s /sbin/nologin docker
 
 USER docker
+
 WORKDIR /app/
 COPY --from=0 /go/src/server/app GoGtmGaProxy
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 CMD curl -f http://localhost:8080/$JS_SUBDIRECTORY/$GA_FILENAME || exit 1
+
 CMD ["./GoGtmGaProxy"]

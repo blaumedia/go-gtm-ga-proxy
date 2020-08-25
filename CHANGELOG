@@ -1,0 +1,11 @@
+[1.0.3]
+
+[+] Added CHANGELOG file
+[+] HEALTHCHECK for docker container
+[+] Added push to github docker registry
+
+[*] Improved settings handling and cleaned up code
+[*] Removed leading and ending slash of environment variables JS_SUBDIRECTORY and GA_PLUGINS_DIRECTORYNAME
+[*] Corrected wrong docker image tagging for upload to github in build.sh
+
+[?] It seems like the www.googletagmanager.com/a endpoint returns a pixel instead of js code. Temporarily disable proxying for it.

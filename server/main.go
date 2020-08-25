@@ -10,81 +10,6 @@ import (
 	"strings"
 )
 
-// DebugOutput enables debug output to stdout
-var DebugOutput bool
-
-// EndpointURI represents the public URL
-var EndpointURI = os.Getenv(`ENDPOINT_URI`)
-
-// JsSubdirectory contains the analytics.js and gtm.js
-var JsSubdirectory = os.Getenv(`JS_SUBDIRECTORY`)
-
-// GaCacheTime contains the time in seconds to cache the analytics.js and analytics_debug.js file
-var GaCacheTime, _ = strconv.ParseInt(os.Getenv(`GA_CACHE_TIME`), 10, 64)
-
-// GtmCacheTime contains the time in seconds to cache the gtm.js file
-var GtmCacheTime, _ = strconv.ParseInt(os.Getenv(`GTM_CACHE_TIME`), 10, 64)
-
-// JsEnableMinify = true, to use tdewolff/minify and mishoo/UglifyJS to optimize the js files from google
-var JsEnableMinify bool
-
-// GtmFilename is the new public name for the gtm.js file
-var GtmFilename = os.Getenv(`GTM_FILENAME`)
-
-// GtmAFilename is the new public name for the gtm.js file
-var GtmAFilename = os.Getenv(`GTM_A_FILENAME`)
-
-// GaFilename is the new public name for the analytics.js file
-var GaFilename = os.Getenv(`GA_FILENAME`)
-
-// GaDebugFilename is the new public name for the analytics_debug.js file
-var GaDebugFilename = os.Getenv(`GADEBUG_FILENAME`)
-
-// GaPluginsDirectoryname is the new public name for the plugins directory
-var GaPluginsDirectoryname = os.Getenv(`GA_PLUGINS_DIRECTORYNAME`)
-
-// GtagFilename is the new public name for the gtag endpoint
-var GtagFilename = os.Getenv(`GTAG_FILENAME`)
-
-// GaCollectEndpoint is the endpoint for the /collect requests
-var GaCollectEndpoint = os.Getenv(`GA_COLLECT_ENDPOINT`)
-
-// GaCollectEndpointRedirect is the endpoint for the /r/collect requests
-var GaCollectEndpointRedirect = os.Getenv(`GA_COLLECT_REDIRECT_ENDPOINT`)
-
-// GaCollectEndpointJ is the endpoint for the /j/collect requests
-var GaCollectEndpointJ = os.Getenv(`GA_COLLECT_J_ENDPOINT`)
-
-// RestrictGtmIds represents a bool that is set by the environment variable RESTRICT_GTM_IDS
-// to en/disable the GTM restriction to prevent abuse of the proxy.
-var RestrictGtmIds bool
-
-// AllowedGtmIds contains the whitelisted GTM container ids to proxy.
-// Will be processed during main() function.
-var AllowedGtmIds = strings.Split(os.Getenv(`GTM_IDS`), `,`)
-
-// EnableServerSideGaCookies = true(string) if this proxy shall set the _ga cookie as HttpOnly cookie
-var EnableServerSideGaCookies bool
-
-// ServerSideGaCookieName is the name where the cookie contents of _ga are being saved
-var ServerSideGaCookieName = os.Getenv(`GA_SERVER_SIDE_COOKIE`)
-
-// CookieDomain is the domain where the cookie is set for
-var CookieDomain = os.Getenv(`COOKIE_DOMAIN`)
-
-// CookieSecure = true/false to set cookie for https only connections
-var CookieSecure bool
-
-// ClientSideGaCookieName defaults to _ga, optional can be changed through Environment variable 'GA_CLIENT_SIDE_COOKIE', see main() func
-var ClientSideGaCookieName = `_ga`
-
-// PluginsEnabled is true, if you want to enable the "plugin engine". Therefore the server searchs for plugins in ./plugins dir.
-var PluginsEnabled bool
-
-var pluginEngine = pluginSystem{
-	dispatcher: make(map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)),
-}
-
 // GaCookieVersion is the cookie version in the _ga cookie
 const GaCookieVersion = "1"
 
@@ -92,6 +17,35 @@ type pluginSystem struct {
 	plugins    []*plugin.Plugin
 	dispatcher map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)
 }
+
+type settingsStruct struct {
+	EnableDebugOutput         bool
+	EndpointURI               string
+	JsSubdirectory            string
+	GaCacheTime               int64
+	GtmCacheTime              int64
+	JsEnableMinify            bool
+	GtmFilename               string
+	GtmAFilename              string
+	GaFilename                string
+	GaDebugFilename           string
+	GaPluginsDirectoryname    string
+	GtagFilename              string
+	GaCollectEndpoint         string
+	GaCollectEndpointRedirect string
+	GaCollectEndpointJ        string
+	RestrictGtmIds            bool
+	AllowedGtmIds             []string
+	EnableServerSideGaCookies bool
+	ServerSideGaCookieName    string
+	CookieDomain              string
+	CookieSecure              bool
+	ClientSideGaCookieName    string
+	PluginsEnabled            bool
+	pluginEngine              pluginSystem
+}
+
+var settingsGGGP settingsStruct
 
 func isInSlice(slice []string, val string) bool {
 	for _, item := range slice {
@@ -104,18 +58,18 @@ func isInSlice(slice []string, val string) bool {
 
 func javascriptFilesHandle(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
-	case JsSubdirectory + GtmFilename:
+	case `/` + settingsGGGP.JsSubdirectory + `/` + settingsGGGP.GtmFilename:
 		googleTagManagerHandle(w, r, `default`)
-	case JsSubdirectory + GtmAFilename:
+	case `/` + settingsGGGP.JsSubdirectory + `/` + settingsGGGP.GtmAFilename:
 		googleTagManagerHandle(w, r, `default_a`)
-	case JsSubdirectory + GtagFilename:
+	case `/` + settingsGGGP.JsSubdirectory + `/` + settingsGGGP.GtagFilename:
 		googleTagManagerHandle(w, r, `gtag`)
-	case JsSubdirectory + GaFilename:
+	case `/` + settingsGGGP.JsSubdirectory + `/` + settingsGGGP.GaFilename:
 		googleAnalyticsJsHandle(w, r, `default`)
-	case JsSubdirectory + GaDebugFilename:
+	case `/` + settingsGGGP.JsSubdirectory + `/` + settingsGGGP.GaDebugFilename:
 		googleAnalyticsJsHandle(w, r, `debug`)
 	default:
-		if r.URL.Path[:len(JsSubdirectory)+len(GaPluginsDirectoryname)-1] == JsSubdirectory+GaPluginsDirectoryname[1:] {
+		if r.URL.Path[:len(settingsGGGP.JsSubdirectory+settingsGGGP.GaPluginsDirectoryname)+3] == `/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaPluginsDirectoryname+`/` {
 			googleAnalyticsJsHandle(w, r, r.URL.Path)
 		} else {
 			fmt.Println(`###################################`)
@@ -145,41 +99,85 @@ func setResponseHeaders(w http.ResponseWriter, headers http.Header) {
 }
 
 func main() {
-	if EndpointURI == `` || JsSubdirectory == `` || GtmFilename == `` || GaFilename == `` || GaDebugFilename == `` || GaCollectEndpoint == `` || GaCollectEndpointRedirect == `` || GaCollectEndpointJ == `` || len(AllowedGtmIds) < 1 {
-		fmt.Println(`ERROR: Seems the environment variables aren't set. Exiting.`)
-		os.Exit(1)
+	// Check if required environment variables are set
+	for _, envVar := range [...]string{
+		"ENDPOINT_URI",
+		"JS_SUBDIRECTORY",
+		"GA_PLUGINS_DIRECTORYNAME",
+		"GTM_FILENAME",
+		"GTM_A_FILENAME",
+		"GTAG_FILENAME",
+		"GA_FILENAME",
+		"GADEBUG_FILENAME",
+		"GA_COLLECT_ENDPOINT",
+		"GA_COLLECT_REDIRECT_ENDPOINT",
+		"GA_COLLECT_J_ENDPOINT",
+		"COOKIE_DOMAIN",
+	} {
+		if os.Getenv(envVar) == `` {
+			fmt.Println(`ERROR: Seems the required environment variable '` + envVar + `' is missing. Exiting.`)
+			os.Exit(1)
+		}
+	}
+
+	settingsGGGP.EndpointURI = os.Getenv(`ENDPOINT_URI`)
+	settingsGGGP.JsSubdirectory = os.Getenv(`JS_SUBDIRECTORY`)
+
+	settingsGGGP.GaCacheTime, _ = strconv.ParseInt(os.Getenv(`GA_CACHE_TIME`), 10, 64)
+	settingsGGGP.GtmCacheTime, _ = strconv.ParseInt(os.Getenv(`GTM_CACHE_TIME`), 10, 64)
+
+	settingsGGGP.GtmFilename = os.Getenv(`GTM_FILENAME`)
+	settingsGGGP.GtmAFilename = os.Getenv(`GTM_A_FILENAME`)
+	settingsGGGP.GaFilename = os.Getenv(`GA_FILENAME`)
+	settingsGGGP.GtagFilename = os.Getenv(`GTAG_FILENAME`)
+	settingsGGGP.GaDebugFilename = os.Getenv(`GADEBUG_FILENAME`)
+
+	settingsGGGP.GaPluginsDirectoryname = os.Getenv(`GA_PLUGINS_DIRECTORYNAME`)
+
+	settingsGGGP.GaCollectEndpoint = os.Getenv(`GA_COLLECT_ENDPOINT`)
+	settingsGGGP.GaCollectEndpointRedirect = os.Getenv(`GA_COLLECT_REDIRECT_ENDPOINT`)
+	settingsGGGP.GaCollectEndpointJ = os.Getenv(`GA_COLLECT_J_ENDPOINT`)
+
+	settingsGGGP.AllowedGtmIds = strings.Split(os.Getenv(`GTM_IDS`), `,`)
+
+	settingsGGGP.ServerSideGaCookieName = os.Getenv(`GA_SERVER_SIDE_COOKIE`)
+	settingsGGGP.CookieDomain = os.Getenv(`COOKIE_DOMAIN`)
+	settingsGGGP.ClientSideGaCookieName = `_ga`
+
+	settingsGGGP.pluginEngine = pluginSystem{
+		dispatcher: make(map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)),
 	}
 
 	// Replace ClientSideGaCookieName if environment variable is set
 	if os.Getenv(`GA_CLIENT_SIDE_COOKIE`) != `` {
-		ClientSideGaCookieName = os.Getenv(`GA_CLIENT_SIDE_COOKIE`)
+		settingsGGGP.ClientSideGaCookieName = os.Getenv(`GA_CLIENT_SIDE_COOKIE`)
 	}
 
 	if strings.ToLower(os.Getenv(`ENABLE_DEBUG_OUTPUT`)) == `true` || strings.ToLower(os.Getenv(`ENABLE_DEBUG_OUTPUT`)) == `1` {
-		DebugOutput = true
+		settingsGGGP.EnableDebugOutput = true
 	}
 
 	if strings.ToLower(os.Getenv(`JS_MINIFY`)) == `true` || strings.ToLower(os.Getenv(`JS_MINIFY`)) == `1` {
-		JsEnableMinify = true
+		settingsGGGP.JsEnableMinify = true
 	}
 
 	if strings.ToLower(os.Getenv(`ENABLE_SERVER_SIDE_GA_COOKIES`)) == `true` || strings.ToLower(os.Getenv(`ENABLE_SERVER_SIDE_GA_COOKIES`)) == `1` {
-		EnableServerSideGaCookies = true
+		settingsGGGP.EnableServerSideGaCookies = true
 	}
 
 	if strings.ToLower(os.Getenv(`RESTRICT_GTM_IDS`)) == `true` || strings.ToLower(os.Getenv(`RESTRICT_GTM_IDS`)) == `1` {
-		RestrictGtmIds = true
+		settingsGGGP.RestrictGtmIds = true
 	}
 
 	if strings.ToLower(os.Getenv(`COOKIE_SECURE`)) == `true` || strings.ToLower(os.Getenv(`COOKIE_SECURE`)) == `1` {
-		CookieSecure = true
+		settingsGGGP.CookieSecure = true
 	}
 
 	if strings.ToLower(os.Getenv(`ENABLE_PLUGINS`)) == `true` || strings.ToLower(os.Getenv(`ENABLE_PLUGINS`)) == `1` {
-		PluginsEnabled = true
+		settingsGGGP.PluginsEnabled = true
 	}
 
-	if PluginsEnabled {
+	if settingsGGGP.PluginsEnabled {
 		_, err := os.Stat(`/app/plugins`)
 
 		if os.IsNotExist(err) == false {
@@ -211,7 +209,7 @@ func main() {
 
 					for k, v := range *pluginDispatcher.(*map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)) {
 						for _, f := range v {
-							pluginEngine.dispatcher[k] = append(pluginEngine.dispatcher[k], f)
+							settingsGGGP.pluginEngine.dispatcher[k] = append(settingsGGGP.pluginEngine.dispatcher[k], f)
 						}
 					}
 				}
@@ -228,11 +226,11 @@ func main() {
 		}
 	}
 
-	http.HandleFunc(JsSubdirectory, javascriptFilesHandle)
+	http.HandleFunc(`/`+settingsGGGP.JsSubdirectory+`/`, javascriptFilesHandle)
 
-	http.HandleFunc(GaCollectEndpoint, collectHandle)
-	http.HandleFunc(GaCollectEndpointRedirect, collectHandle)
-	http.HandleFunc(GaCollectEndpointJ, collectHandle)
+	http.HandleFunc(settingsGGGP.GaCollectEndpoint, collectHandle)
+	http.HandleFunc(settingsGGGP.GaCollectEndpointRedirect, collectHandle)
+	http.HandleFunc(settingsGGGP.GaCollectEndpointJ, collectHandle)
 
 	if err := http.ListenAndServe(`:8080`, nil); err != nil {
 		panic(err)
