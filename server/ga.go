@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/tdewolff/minify/v2"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tdewolff/minify/v2"
 )
 
 type gaSourceCodeCache struct {
@@ -28,11 +29,6 @@ type gaSourceCodeCache struct {
 
 var srcGaCache = make(map[string]gaSourceCodeCache)
 var gaMapSync sync.Mutex
-
-// var (
-// 	srcGaCache      = gaSourceCodeCache{lastUpdate: 0}
-// 	srcGaDebugCache = gaSourceCodeCache{lastUpdate: 0}
-// )
 
 func generateGACookie() string {
 	rand.Seed(time.Now().UnixNano())
@@ -55,26 +51,26 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		GaCache, _ = srcGaCache[path]
 	}
 
-	if DebugOutput {
+	if settingsGGGP.EnableDebugOutput {
 		fmt.Println(`Locking Cache MUX`)
 	}
 
 	GaCache.mux.Lock()
 
-	if DebugOutput {
+	if settingsGGGP.EnableDebugOutput {
 		fmt.Println(`Locked Cache MUX`)
 	}
 
-	if GaCache.lastUpdate > (time.Now().Unix() - GaCacheTime) {
-		if DebugOutput {
+	if GaCache.lastUpdate > (time.Now().Unix() - settingsGGGP.GaCacheTime) {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocking Cache MUX (Cache)`)
 		}
 		GaCache.mux.Unlock()
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocked Cache MUX (Cache)`)
 		}
 
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Fetching GA-JS Request from Cache...`)
 		}
 
@@ -82,7 +78,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		headersToReturn = GaCache.headers
 		usedCache = true
 	} else {
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Refreshing Cache for GA-JS Request...`)
 		}
 
@@ -95,17 +91,17 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		case `default`:
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics.js`, nil)
 
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				fmt.Println(`REQUESTING: https://www.google-analytics.com/analytics.js`)
 			}
 		case `debug`:
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com/analytics_debug.js`, nil)
 
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				fmt.Println(`REQUESTING: https://www.google-analytics.com/analytics_debug.js`)
 			}
 		default:
-			re := regexp.MustCompile(GaPluginsDirectoryname)
+			re := regexp.MustCompile(settingsGGGP.GaPluginsDirectoryname)
 			pathTranslated := re.ReplaceAll([]byte(path), []byte(`/plugins/`))
 
 			re = regexp.MustCompile(`(.*)?(\/plugins\/.*\.js)(.*)?`)
@@ -113,7 +109,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 
 			req, err = http.NewRequest(`GET`, `https://www.google-analytics.com`+pathRequest[2], nil)
 
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				fmt.Println(`REQUESTING: https://www.google-analytics.com` + pathRequest[2])
 			}
 		}
@@ -142,38 +138,38 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		}
 
 		re := regexp.MustCompile(`googletagmanager.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
-		body = re.ReplaceAll([]byte(body), []byte(`/`+JsSubdirectory[1:]+GtmFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
-		body = re.ReplaceAll([]byte(body), []byte(EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
 
 		re = regexp.MustCompile(`analytics.js`)
-		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaFilename))
 
 		re = regexp.MustCompile(`u\/analytics_debug.js`)
-		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory[1:]+GaDebugFilename))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaDebugFilename))
 
 		re = regexp.MustCompile(`\"/r\/collect`)
-		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointRedirect))
+		body = re.ReplaceAll([]byte(body), []byte(`"`+settingsGGGP.GaCollectEndpointRedirect))
 
 		re = regexp.MustCompile(`\"/j\/collect`)
-		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpointJ))
+		body = re.ReplaceAll([]byte(body), []byte(`"`+settingsGGGP.GaCollectEndpointJ))
 
 		re = regexp.MustCompile(`\"/collect`)
-		body = re.ReplaceAll([]byte(body), []byte(`"`+GaCollectEndpoint))
+		body = re.ReplaceAll([]byte(body), []byte(`"`+settingsGGGP.GaCollectEndpoint))
 
 		re = regexp.MustCompile(`\/plugins\/`)
-		body = re.ReplaceAll([]byte(body), []byte(JsSubdirectory+GaPluginsDirectoryname[1:]))
+		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaPluginsDirectoryname+`/`))
 
-		if JsEnableMinify {
+		if settingsGGGP.JsEnableMinify {
 			m := minify.New()
 			m.AddCmd(`application/javascript`, exec.Command("uglifyjs"))
 
 			var previousLengthOfJs int
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				previousLengthOfJs = len(body)
 			}
 
@@ -182,7 +178,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 				panic(err)
 			}
 
-			if DebugOutput {
+			if settingsGGGP.EnableDebugOutput {
 				afterLengthOfJs := len(body)
 				compressChange := fmt.Sprintf(`%f`, (float64(previousLengthOfJs-afterLengthOfJs)/float64(previousLengthOfJs))*float64(100))
 				fmt.Println(`Compressed the Google Analytics JS File and reduced it by ` + compressChange + `%.`)
@@ -200,13 +196,13 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		sourceCodeToReturn = body
 		usedCache = false
 
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocking Cache MUX (No-Cache)`)
 		}
 
 		GaCache.mux.Unlock()
 
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Unlocked Cache MUX (No-Cache)`)
 		}
 
@@ -216,44 +212,45 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		gaMapSync.Unlock()
 	}
 
-	if EnableServerSideGaCookies {
-		cookieContent, errCookie := r.Cookie(ServerSideGaCookieName)
-
+	if settingsGGGP.EnableServerSideGaCookies {
 		var newCookieContent string
 		var newCookieDecodedContent string
 
-		if errCookie == nil {
-			cookieDecodedContent, errCookieDecode := base64.StdEncoding.DecodeString(cookieContent.Value)
-
-			if errCookieDecode == nil {
-				newCookieContent = cookieContent.Value
-				newCookieDecodedContent = string(cookieDecodedContent)
-			} else {
-				newCookieDecodedContent = generateGACookie()
-				newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+		if cookieContent, errCookie := r.Cookie(settingsGGGP.ServerSideGaCookieName); errCookie == nil {
+			if cookieDecodedContent, errCookieDecode := base64.StdEncoding.DecodeString(cookieContent.Value); errCookieDecode == nil {
+				// Hardening cookie method; allow only numbers, characters and points
+				if match, _ := regexp.MatchString(`[A-Za-z0-9\.]`, cookieContent.Value); match {
+					newCookieContent = cookieContent.Value
+					newCookieDecodedContent = string(cookieDecodedContent)
+				}
 			}
 		} else {
 			if gaCookie, gaErr := r.Cookie(`_ga`); gaErr == nil {
-				newCookieDecodedContent = gaCookie.Value
-				newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
-			} else {
-				newCookieDecodedContent = generateGACookie()
-				newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+				// Hardening cookie method; allow only numbers, characters and points
+				if match, _ := regexp.MatchString(`[A-Za-z0-9\.]`, gaCookie.Value); match {
+					newCookieDecodedContent = gaCookie.Value
+					newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+				}
 			}
 		}
 
-		if CookieSecure {
-			if DebugOutput {
-				fmt.Println(`Set-Cookie: ` + ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + CookieDomain + `; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+		if newCookieContent == `` && newCookieDecodedContent == `` {
+			newCookieDecodedContent = generateGACookie()
+			newCookieContent = base64.StdEncoding.EncodeToString([]byte(newCookieDecodedContent))
+		}
+
+		if settingsGGGP.CookieSecure {
+			if settingsGGGP.EnableDebugOutput {
+				fmt.Println(`Set-Cookie: ` + settingsGGGP.ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + settingsGGGP.CookieDomain + `; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			}
-			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
-			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+settingsGGGP.CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+settingsGGGP.CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
 		} else {
-			if DebugOutput {
-				fmt.Println(`Set-Cookie: ` + ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + CookieDomain + `; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			if settingsGGGP.EnableDebugOutput {
+				fmt.Println(`Set-Cookie: ` + settingsGGGP.ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + settingsGGGP.CookieDomain + `; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			}
-			w.Header().Add(`Set-Cookie`, ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
-			w.Header().Add(`Set-Cookie`, ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+settingsGGGP.CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+settingsGGGP.CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
 		}
 	}
 
@@ -265,7 +262,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		w.Header().Add(`X-Cache-Hit`, `false`)
 	}
 
-	for _, f := range pluginEngine.dispatcher[`after_ga_js`] {
+	for _, f := range settingsGGGP.pluginEngine.dispatcher[`after_ga_js`] {
 		f(&w, r, &statusCodeToReturn, &sourceCodeToReturn)
 	}
 
@@ -289,11 +286,11 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 	clientURL := ``
 
 	switch r.URL.Path {
-	case GaCollectEndpointRedirect:
+	case settingsGGGP.GaCollectEndpointRedirect:
 		clientURL = `https://www.google-analytics.com/r/collect`
-	case GaCollectEndpointJ:
+	case settingsGGGP.GaCollectEndpointJ:
 		clientURL = `https://www.google-analytics.com/j/collect`
-	case GaCollectEndpoint:
+	case settingsGGGP.GaCollectEndpoint:
 		fallthrough
 	default:
 		clientURL = `https://www.google-analytics.com/collect`
@@ -326,7 +323,7 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if DebugOutput {
+	if settingsGGGP.EnableDebugOutput {
 		fmt.Println(`Collect-Redirect:`)
 		fmt.Println(`Payload:`)
 		fmt.Println(bodyPayload)
@@ -382,7 +379,7 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(clientURL + `?` + formatPayLoad)
 		}
 	case `POST`:
@@ -392,7 +389,7 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
-		if DebugOutput {
+		if settingsGGGP.EnableDebugOutput {
 			fmt.Println(`Format Payload:`)
 			fmt.Println(formatPayLoad)
 		}
