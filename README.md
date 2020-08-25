@@ -6,7 +6,7 @@
 - [Chrome Extension](#chrome-extension)
 - [Performance](#performance)
 - [Plugins](#plugins)
-- [To do](#to-do)
+- [To do/Known problems](#to-do)
 - [Support](#support)
 - [Donate](#donate)
 
@@ -14,11 +14,12 @@
 ## Introduction
 The fight against tracking blockers goes into the next round! Companies depend on having a solid data base to make the right decisions and to understand their customers accurately. This proxy server makes it possible to achieve this with minimal effort.
 
-But how exactly does this "proxy" for the Google Tag Manager and Google Analytics work? And what is a proxy actually?
+But how exactly does a "proxy" for the Google Tag Manager and Google Analytics work? And what is a proxy actually?
 
-* IMAGE *
+![Description of how a proxy server for GTM + GA in general works.](https://user-images.githubusercontent.com/4989256/55686879-542d2f00-596f-11e9-8313-5837af75cc2e.png)
+[Credits to ZitRos](https://github.com/ZitRos/save-analytics-from-content-blockers) and his proxy for this scheme!
 
-To prevent tracking, blockers try to block the URLs of www.googletagmanager.com and www.google-analytics.com among several other sites. So this proxy server integrates itself into your website and makes https://www.googletagmanager.com/gtm.js?id=GTM-ABC123 (f.e.) to https://www.yourdomain.tld/K3ZQ8HD.js?id=ABC123. Thus a Tracking Blocker does not realize that the Google Tag Manager is behind the script. The same happens with the script of Google Analytics (https://www.google-analytics.com/analytics.js). The proxy will change the URLs in the scripts to route the traffic through the proxy instead of requesting Google servers. Additionally the proxy of the Google Analytics Javascript has a *built-in solution* for the client-side cookie problematic that came up with Apples Intelligent Tracking Prevention (ITP).
+To prevent tracking, blockers try to block the URLs of www.googletagmanager.com and www.google-analytics.com among several other sites. So this proxy server integrates itself into your website and makes https://www.googletagmanager.com/gtm.js?id=GTM-ABC123 (f.e.) to https://www.yourdomain.tld/K3ZQ8HD.js?id=ABC123. Thus a Tracking Blocker does not realize that the Google Tag Manager is behind the script. The same happens with the script of Google Analytics (https://www.google-analytics.com/analytics.js). The proxy will change the URLs in the scripts to route the traffic through the proxy instead of requesting Google servers. Additionally the proxy of the Google Analytics Javascript has a *built-in solution* for the client-side cookie problematic that came up with Apples Intelligent Tracking Prevention (ITP) and some other tweaks.
 
 ## Features
 - Bypass tracking blockers to load your Google Tag Manager
@@ -40,14 +41,14 @@ Starting the proxy is possible with following command and environment variables:
 ```shell
 docker run \
     -e ENDPOINT_URI=www.yourdomain.tld \
-    -e JS_SUBDIRECTORY=/js/ \
+    -e JS_SUBDIRECTORY=js \
     -e GA_CACHE_TIME=3600 \
     -e GTM_CACHE_TIME=3600 \
     -e GTM_FILENAME=gtm.js \
     -e GTM_A_FILENAME=gtm_a.js \
     -e GA_FILENAME=ga.js \
     -e GADEBUG_FILENAME=ga_debug.js \
-    -e GA_PLUGINS_DIRECTORYNAME=/links/ \
+    -e GA_PLUGINS_DIRECTORYNAME=links \
     -e GTAG_FILENAME=tag.js \
     -e RESTRICT_GTM_IDS=false \
     -e GTM_IDS=YOUR_GTM_ID_WITHOUT_GTM- \
@@ -69,15 +70,16 @@ docker run \
 |Variable|Description|Example|
 |-----------------|-----|-----|
 |```ENABLE_DEBUG_OUTPUT```|Set this to true to let the proxy print debug details for setting up or debugging.|false|
-|```ENDPOINT_URI```|URI where the proxy will be reachable.|www.google.com|
-|```JS_SUBDIRECTORY```|It is intended to serve the javascript files within a subdirectory of the URI. Here you can define a name for it.|/js/|
+|```ENDPOINT_URI```|URI where the proxy will be reachable at.|www.google.com|
+|```JS_SUBDIRECTORY```|It is intended to serve the javascript files within a subdirectory of the URI. Here you can define a name for it.|js|
+|```HTML_SUBDIRECTORY```|It is intended to serve the html files (like the GTM iframe) within a subdirectory of the URI. Here you can define a name for it.|html|
 |```GA_CACHE_TIME```|Time in seconds the proxy caches the Google Analytics client javascript.|3600|
 |```GTM_CACHE_TIME```|Time in seconds the proxy caches the Google Tag Manager client javascript.|3600|
-|```GTM_FILENAME```|The filename the GTM javascript file is reachable.|gtm_inject.js|
-|```GTM_A_FILENAME```|The alternative filename the GTM javascript file is reachable. (www.googletagmanager.com/a)|container_a.js|
-|```GA_FILENAME```|The filename the Google Analytics javascript file is reachable.|ga_inject.js|
+|```GTM_FILENAME```|The filename the GTM javascript file is reachable at.|gtm_inject.js|
+|```GTM_A_FILENAME```|The alternative filename the GTM javascript file is reachable at. (www.googletagmanager.com/a)|container_a.js|
+|```GA_FILENAME```|The filename the Google Analytics javascript file is reachable at.|ga_inject.js|
 |```GADEBUG_FILENAME```|The filename the [Google Analytics debug](https://developers.google.com/analytics/devguides/collection/analyticsjs/debugging) javascript file is reachable.|gadebug_inject.js|
-|```GA_PLUGINS_DIRECTORYNAME```|The directory name where google analytics plugins will be accessable at.|/links/|
+|```GA_PLUGINS_DIRECTORYNAME```|The directory name where google analytics plugins will be accessable at.|links|
 |```GTAG_FILENAME```|The filename where gtag will be accessable at.|tag.js|
 |```RESTRICT_GTM_IDS```|Set to true if you want to enable a whitelist for the GTM-IDs.|false|
 |```GTM_IDS```|Here you can setup the whitelist for GTM ids. Comma-separate if you want to add multiple ids. Just put the ids without the leading 'GTM-'.|NNQJ5LT,N5ZZT3|
@@ -189,7 +191,7 @@ server {
     ProxyPass / http://127.0.0.1:8080/
     ProxyPassReverse / http://127.0.0.1:8080/
 
-    ServerName localhost
+    ServerName gggp.example.com
 </VirtualHost>
 ```
 
@@ -375,7 +377,7 @@ Zitro's proxy server blocks an entire core of the server, while the GoGtmGaProxy
 To do.
 
 ## To Do
-To do.
+- We have noticed that our remarketing lists in Google Ads are no longer filled correctly, although we forward the 302 forwarding from the ad server to the user. We are investigating the problem and are grateful for every tip.
 
 ## Support
 Since I use the proxy on various corporate sites with a lot of traffic, I have a great interest in a bug-free experience. So if you notice a bug or error, feel free to create an issue or pull request. If you have any questions or problems regarding the proxy, you are welcome to create an issue and I will get back to you as soon as possible.
@@ -388,34 +390,3 @@ If you found this repo useful, please consider a donation. Thank You!
 [Bitcoin: 1BbijSBrwwjjqM2svcACocMW5LksJeVewv](https://www.blockchain.com/btc/address/1BbijSBrwwjjqM2svcACocMW5LksJeVewv)
 
 [Ethereum: 0x6e49adAc9752c293a2B4d244DD0Cb1dc655D536d](https://www.blockchain.com/eth/address/0x6e49adAc9752c293a2B4d244DD0Cb1dc655D536d)
-
-# go-gtm-ga-proxy
-### Attention: ALPHA! Under heavy development!
-Bypass any tracking-blocking browser plugins with this first-party-tracking-proxy for Google Tag Manager and Google Analytics.
-
-## Expected behaviour
-- ~Proxying gtm.js and analytics.js to original google servers~
-- - ~replace any google-tagmanager.com or google-analytics.com URLs~
-- - ~send redirection to user if google analytics /collect endpoint answers with 302 redirection for google ads~
-- ~set \_ga cookie so it's server side and ITP safe~
-- ~deploy-ready docker container~
-- ~chrome plugin for sync of gtm cookies, so preview mode works?~
-- maybe (!) geoip2 integration to send more detailed and more accurated geo information to google (https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#geoid)
-- uBlock dataLayer Blocker https://i.blaumedia.com/h6hyn_Fernstudium_f%C3%BCr_Bachelor_und_Master___IUBH_F.png
-- ~Fix Chrome Plugin~
-- Add Debug-Output
-- ~Implement JS-minifier~
-
-## Client Id Cookie Integration
-### Direct Google Analytics Integration
-```javascript
-ga('create', 'UA-XXXXX-Y', {
-    'cookieUpdate': false
-});
-```
-
-### GTM Integration
-Create a centralized "GA Settings" variable that is used by all your tags that get in contact with your google analytics instance. Then set another field according to:
-![Google Tag Manager Integration](https://i.blaumedia.com/6800y_Tag_Manager_360_-_Google_Chrome_2020-04-20_0.png)
-
-This will prevent that analytics.js will touch the _ga cookie in any form. The proxy manages the _ga cookie.
