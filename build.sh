@@ -38,9 +38,14 @@ fi
 if [ $2 = "1" ]
   then
     docker push blaumedia/go-gtm-ga-proxy:latest
+    docker tag blaumedia/go-gtm-ga-proxy:latest docker.pkg.github.com/blaumedia/go-gtm-ga-proxy/go-gtm-ga-proxy:latest
+    docker push docker.pkg.github.com/blaumedia/go-gtm-ga-proxy/go-gtm-ga-proxy:latest
 
     docker tag blaumedia/go-gtm-ga-proxy:latest blaumedia/go-gtm-ga-proxy:$1
     docker push blaumedia/go-gtm-ga-proxy:$1
+
+    docker tag blaumedia/go-gtm-ga-proxy:latest docker.pkg.github.com/blaumedia/go-gtm-ga-proxy/go-gtm-ga-proxy:$1
+    docker push docker.pkg.github.com/blaumedia/go-gtm-ga-proxy/go-gtm-ga-proxy:$1
 else
   echo "Skipping push to DockerHub."
 fi
