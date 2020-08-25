@@ -97,6 +97,31 @@ docker run \
 
 There are two ways to integrate the proxy into your existing system. You have the choice between integration using a subdomain or a subdirectory on your website. When integrating through a subdomain, make sure that you place the cookies on the root domain and not under the subdomain; this can be configured with the environment variable ```COOKIE_DOMAIN```. Another important setting that must be configured in the frontend proxy is the deactivation of rewrite of forwardings. The Google Measurement Protocol will return a 302 redirect on /r/collect requests, leading to a Google Ads endpoint. In order for the end user to be redirected there, the redirect rewrite must be disabled. Example configs for nginx and apache2 are below. If you successfully integrated the proxy into another solution, feel free to fork, edit the docs & submit a pull request! :)
 
+### Integration in JavaScript/Frontend
+Change the GTM integration snippet from:
+
+```javascript
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-XXXX');</script>
+<!-- End Google Tag Manager -->
+```
+
+to where your proxy is reachable at:
+
+```javascript
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://gggp.example.com/js/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','XXXX');</script>
+<!-- End Google Tag Manager -->
+```
+
 ### Example integration using subdirectory
 Please note that 127.0.0.1 is an example IP in the following configs. Obviously you have to change it to the ip address where the proxy is reachable.
 
