@@ -29,7 +29,7 @@ To prevent tracking, blockers try to block the URLs of www.googletagmanager.com 
 - Chrome Extension for the trouble-free use of the Google Tag Manager preview mode (see [Chrome Extension](#chrome-extension) for the why)
 - High performant and full RFC compliant thanks to Go and [net/http](https://golang.org/pkg/net/http/)
 - JS minifier for optimizations of up to 30% (thanks to [tdewolff/minify](https://github.com/tdewolff/minify) and [mishoo/UglifyJS](https://github.com/mishoo/UglifyJS))
-- Small 50MB [ready-2-use](https://hub.docker.com/repository/docker/blaumedia/go-gtm-ga-proxy) docker image for crazy fast deployments, updates and close-to-zero harddrive occupation
+- Small 20MB [ready-2-use](https://hub.docker.com/repository/docker/blaumedia/go-gtm-ga-proxy) docker image for crazy fast deployments, updates and close-to-zero harddrive occupation
 - Many environment variables to adjust the proxy exactly to your needs
 - Expandable through [Plugins](#plugins)
 
