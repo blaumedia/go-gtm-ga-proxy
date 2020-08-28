@@ -276,6 +276,6 @@ If you found this repo useful, please consider a donation. Thank You!
 
 [PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7K2542NW63TWQ&source=url)
 
-[Bitcoin: 1BbijSBrwwjjqM2svcACocMW5LksJeVewv](https://www.blockchain.com/btc/address/1BbijSBrwwjjqM2svcACocMW5LksJeVewv)
+[Bitcoin: 131AUMEDiAFHakkLHnvhYgvunKR6d38kZx](https://www.blockchain.com/btc/address/131AUMEDiAFHakkLHnvhYgvunKR6d38kZx)
 
-[Ethereum: 0x6e49adAc9752c293a2B4d244DD0Cb1dc655D536d](https://www.blockchain.com/eth/address/0x6e49adAc9752c293a2B4d244DD0Cb1dc655D536d)
+[Ethereum: 0x9eB04Daf33DEF7dec2f5D454D1c63c020aBe8D8f](https://www.blockchain.com/eth/address/0x9eB04Daf33DEF7dec2f5D454D1c63c020aBe8D8f)
