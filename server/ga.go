@@ -122,6 +122,10 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 
 		req.Header.Set(`User-Agent`, `GoGtmGaProxy `+os.Getenv(`APP_VERSION`)+`; github.com/blaumedia/go-gtm-ga-proxy`)
 
+		for _, f := range settingsGGGP.pluginEngine.BeforeGaJsDispatcher {
+			f(&w, r, req)
+		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println(`Experienced problems on requesting analytics.js from google. Aborting.`)
@@ -262,7 +266,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		w.Header().Add(`X-Cache-Hit`, `false`)
 	}
 
-	for _, f := range settingsGGGP.pluginEngine.dispatcher[`after_ga_js`] {
+	for _, f := range settingsGGGP.pluginEngine.AfterGaJsDispatcher {
 		f(&w, r, &statusCodeToReturn, &sourceCodeToReturn)
 	}
 
@@ -340,7 +344,7 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if os.Getenv(`PROXY_IP_HEADER`) != `` {
+	if os.Getenv(`PROXY_IP_HEADER`) != `` && r.Header.Get(os.Getenv(`PROXY_IP_HEADER`)) != `` {
 		proxyHeaderIps := strings.Split(r.Header.Get(os.Getenv(`PROXY_IP_HEADER`)), `,`)
 		var proxyHeaderIPIndex = 0
 
@@ -368,6 +372,10 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 
 		formatPayLoad = formatPayLoad + `ua=` + url.QueryEscape(r.Header.Get(`User-Agent`)) + `&uip=` + url.QueryEscape(IPToRedirect)
 	} else {
+		if os.Getenv(`PROXY_IP_HEADER`) != `` {
+			fmt.Println(`Header with given environment header name '` + os.Getenv(`PROXY_IP_HEADER`) + `' is empty. Falling back to served REMOTE_ADDR...`)
+			fmt.Println(url.QueryEscape(strings.Split(r.RemoteAddr, `:`)[0]))
+		}
 		formatPayLoad = formatPayLoad + `ua=` + url.QueryEscape(r.Header.Get(`User-Agent`)) + `&uip=` + url.QueryEscape(strings.Split(r.RemoteAddr, `:`)[0])
 	}
 
@@ -399,6 +407,10 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set(`Accept`, `*/*`)
 	req.Header.Set(`Content-Type`, `text/plain;charset=UTF-8`)
 
+	for _, f := range settingsGGGP.pluginEngine.BeforeGaCollectDispatcher {
+		f(&w, r, req)
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		if resp.StatusCode == http.StatusFound {
@@ -423,9 +435,14 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.WriteHeader(resp.StatusCode)
 		setResponseHeaders(w, resp.Header)
 
-		w.Write([]byte(body))
+		for _, f := range settingsGGGP.pluginEngine.AfterGaCollectDispatcher {
+			f(&w, r, &resp.StatusCode, &body)
+		}
+
+		w.WriteHeader(resp.StatusCode)
+
+		w.Write(body)
 	}
 }

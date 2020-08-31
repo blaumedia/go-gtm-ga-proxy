@@ -151,6 +151,10 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		// Redirect gtm_* cookies to GTM for preview mode
 		req.Header.Set(`Cookie`, strings.Join(GtmCookies, `; `))
 
+		for _, f := range settingsGGGP.pluginEngine.BeforeGtmJsDispatcher {
+			f(&w, r, req)
+		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println(`Experienced problems on requesting gtm.js from google. Aborting.`)
@@ -245,7 +249,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		w.Header().Add(`X-Cache-Hit`, `false`)
 	}
 
-	for _, f := range settingsGGGP.pluginEngine.dispatcher[`after_gtm_js`] {
+	for _, f := range settingsGGGP.pluginEngine.AfterGtmJsDispatcher {
 		f(&w, r, &statusCodeToReturn, &sourceCodeToReturn)
 	}
 

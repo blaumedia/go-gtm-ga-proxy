@@ -14,8 +14,14 @@ import (
 const GaCookieVersion = "1"
 
 type pluginSystem struct {
-	plugins    []*plugin.Plugin
-	dispatcher map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)
+	plugins []*plugin.Plugin
+
+	BeforeGaJsDispatcher      []func(*http.ResponseWriter, *http.Request, *http.Request)
+	AfterGaJsDispatcher       []func(*http.ResponseWriter, *http.Request, *int, *[]byte)
+	BeforeGtmJsDispatcher     []func(*http.ResponseWriter, *http.Request, *http.Request)
+	AfterGtmJsDispatcher      []func(*http.ResponseWriter, *http.Request, *int, *[]byte)
+	BeforeGaCollectDispatcher []func(*http.ResponseWriter, *http.Request, *http.Request)
+	AfterGaCollectDispatcher  []func(*http.ResponseWriter, *http.Request, *int, *[]byte)
 }
 
 type settingsStruct struct {
@@ -144,9 +150,7 @@ func main() {
 	settingsGGGP.CookieDomain = os.Getenv(`COOKIE_DOMAIN`)
 	settingsGGGP.ClientSideGaCookieName = `_ga`
 
-	settingsGGGP.pluginEngine = pluginSystem{
-		dispatcher: make(map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)),
-	}
+	settingsGGGP.pluginEngine = pluginSystem{}
 
 	// Replace ClientSideGaCookieName if environment variable is set
 	if os.Getenv(`GA_CLIENT_SIDE_COOKIE`) != `` {
@@ -181,9 +185,18 @@ func main() {
 		_, err := os.Stat(`/app/plugins`)
 
 		if os.IsNotExist(err) == false {
+			var pluginFuncs = [...]string{
+				`BeforeGaJs`,
+				`AfterGaJs`,
+				`BeforeGaCollect`,
+				`AfterGaCollect`,
+				`BeforeGtmJs`,
+				`AfterGtmJs`,
+			}
+
 			err := filepath.Walk(`./plugins/`, func(path string, info os.FileInfo, _ error) error {
 				if info.IsDir() == false && info.Name()[len(info.Name())-2:] == "so" {
-					fmt.Println(`/app/plugins/` + info.Name())
+					fmt.Println(`Integrating plugin '/app/plugins/` + info.Name() + `'`)
 					p, err := plugin.Open(`/app/plugins/` + info.Name())
 
 					if err != nil {
@@ -191,27 +204,34 @@ func main() {
 						panic(err)
 					}
 
-					mainFunc, err := p.Lookup(`Main`)
+					for _, funcName := range pluginFuncs {
+						givenFunc, err := p.Lookup(funcName)
 
-					if err != nil {
-						fmt.Println(`ERROR: Failure on starting main routine of plugin!`)
-						panic(err)
-					}
-
-					mainFunc.(func())()
-
-					pluginDispatcher, err := p.Lookup(`Dispatcher`)
-
-					if err != nil {
-						fmt.Println(`ERROR: Failure on reading Dispatcher of plugin!`)
-						panic(err)
-					}
-
-					for k, v := range *pluginDispatcher.(*map[string][]func(*http.ResponseWriter, *http.Request, *int, *[]byte)) {
-						for _, f := range v {
-							settingsGGGP.pluginEngine.dispatcher[k] = append(settingsGGGP.pluginEngine.dispatcher[k], f)
+						if err == nil {
+							switch funcName {
+							case `BeforeGaJs`:
+								settingsGGGP.pluginEngine.BeforeGaJsDispatcher = append(settingsGGGP.pluginEngine.BeforeGaJsDispatcher, givenFunc.(func(*http.ResponseWriter, *http.Request, *http.Request)))
+							case `AfterGaJs`:
+								settingsGGGP.pluginEngine.AfterGaJsDispatcher = append(settingsGGGP.pluginEngine.AfterGaJsDispatcher, givenFunc.(func(*http.ResponseWriter, *http.Request, *int, *[]byte)))
+							case `BeforeGtmJs`:
+								settingsGGGP.pluginEngine.BeforeGtmJsDispatcher = append(settingsGGGP.pluginEngine.BeforeGtmJsDispatcher, givenFunc.(func(*http.ResponseWriter, *http.Request, *http.Request)))
+							case `AfterGtmJs`:
+								settingsGGGP.pluginEngine.AfterGtmJsDispatcher = append(settingsGGGP.pluginEngine.AfterGtmJsDispatcher, givenFunc.(func(*http.ResponseWriter, *http.Request, *int, *[]byte)))
+							case `BeforeGaCollect`:
+								settingsGGGP.pluginEngine.BeforeGaCollectDispatcher = append(settingsGGGP.pluginEngine.BeforeGaCollectDispatcher, givenFunc.(func(*http.ResponseWriter, *http.Request, *http.Request)))
+							case `AftereGaCollect`:
+								settingsGGGP.pluginEngine.AfterGaCollectDispatcher = append(settingsGGGP.pluginEngine.AfterGaCollectDispatcher, givenFunc.(func(*http.ResponseWriter, *http.Request, *int, *[]byte)))
+							}
 						}
 					}
+
+					// Running Main() function of plugin if existing
+					mainFunc, err := p.Lookup(`Main`)
+
+					if err == nil {
+						mainFunc.(func())()
+					}
+
 				}
 				return nil
 			})
