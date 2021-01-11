@@ -101,7 +101,6 @@ func setResponseHeaders(w http.ResponseWriter, headers http.Header) {
 func main() {
 	// Check if required environment variables are set
 	for _, envVar := range [...]string{
-		"ENDPOINT_URI",
 		"JS_SUBDIRECTORY",
 		"GA_PLUGINS_DIRECTORYNAME",
 		"GTM_FILENAME",
@@ -112,7 +111,6 @@ func main() {
 		"GA_COLLECT_ENDPOINT",
 		"GA_COLLECT_REDIRECT_ENDPOINT",
 		"GA_COLLECT_J_ENDPOINT",
-		"COOKIE_DOMAIN",
 	} {
 		if os.Getenv(envVar) == `` {
 			fmt.Println(`ERROR: Seems the required environment variable '` + envVar + `' is missing. Exiting.`)

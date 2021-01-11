@@ -34,6 +34,11 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 	var statusCodeToReturn int = 200
 	var headersToReturn http.Header
 	var usedCache bool
+	var endpointURI = settingsGGGP.EndpointURI
+
+	if settingsGGGP.EndpointURI == "" {
+		endpointURI = r.Host
+	}
 
 	if innerID, ok := r.URL.Query()[`id`]; ok {
 		if len(innerID[0]) >= 4 {
@@ -63,14 +68,14 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		}
 	}
 
-	GtmCache, CacheExists := srcGtmCache[GtmContainerID+GtmURLAddition]
+	GtmCache, CacheExists := srcGtmCache[endpointURI+"/"+GtmContainerID+GtmURLAddition]
 
 	if CacheExists == false {
 		gtmMapSync.Lock()
-		srcGtmCache[GtmContainerID+GtmURLAddition] = gtmSourceCodeCache{lastUpdate: 0}
+		srcGtmCache[endpointURI+"/"+GtmContainerID+GtmURLAddition] = gtmSourceCodeCache{lastUpdate: 0}
 		gtmMapSync.Unlock()
 
-		GtmCache, _ = srcGtmCache[GtmContainerID+GtmURLAddition]
+		GtmCache, _ = srcGtmCache[endpointURI+"/"+GtmContainerID+GtmURLAddition]
 	}
 
 	if !isInSlice(settingsGGGP.AllowedGtmIds, r.URL.Query()[`id`][0]) && !isInSlice(settingsGGGP.AllowedGtmIds, r.URL.Query()[`id`][0][4:]) && settingsGGGP.RestrictGtmIds {
@@ -171,16 +176,16 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 		// body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI+`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtmAFilename))
 
 		re := regexp.MustCompile(`(www\.)?googletagmanager.com`)
-		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(endpointURI))
 
-		re = regexp.MustCompile(settingsGGGP.EndpointURI + `\/a`)
+		re = regexp.MustCompile(endpointURI + `\/a`)
 		body = re.ReplaceAll([]byte(body), []byte(`www.googletagmanager.com\/a`))
 
 		re = regexp.MustCompile(`\/gtm.js`)
 		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
-		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(endpointURI))
 
 		re = regexp.MustCompile(`(\/)?analytics.js`)
 		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaFilename))
@@ -233,7 +238,7 @@ func googleTagManagerHandle(w http.ResponseWriter, r *http.Request, path string)
 
 		// Reassigning the copy of the struct back to map
 		gtmMapSync.Lock()
-		srcGtmCache[GtmContainerID+GtmURLAddition] = GtmCache
+		srcGtmCache[endpointURI+"/"+GtmContainerID+GtmURLAddition] = GtmCache
 		gtmMapSync.Unlock()
 	}
 
