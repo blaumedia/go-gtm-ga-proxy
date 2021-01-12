@@ -70,7 +70,7 @@ docker run \
 |Variable|Description|Example|
 |-----------------|-----|-----|
 |```ENABLE_DEBUG_OUTPUT```|Set this to true to let the proxy print debug details for setting up or debugging.|false|
-|```ENDPOINT_URI```|URI where the proxy will be reachable at.|www.google.com|
+|```ENDPOINT_URI```|URI where the proxy will be reachable at. If not present, will use `Host` header.|www.google.com|
 |```JS_SUBDIRECTORY```|It is intended to serve the javascript files within a subdirectory of the URI. Here you can define a name for it.|js|
 |```HTML_SUBDIRECTORY```|It is intended to serve the html files (like the GTM iframe) within a subdirectory of the URI. Here you can define a name for it.|html|
 |```GA_CACHE_TIME```|Time in seconds the proxy caches the Google Analytics client javascript.|3600|
@@ -91,7 +91,7 @@ docker run \
 |```ENABLE_SERVER_SIDE_GA_COOKIES```|If the proxy should transfer the client id to a serverside cookie, set this to true.|true|
 |```GA_SERVER_SIDE_COOKIE```|Set the cookie name for the serverside cookie.|_gggp|
 |```GA_CLIENT_SIDE_COOKIE```|Set the cookie name for the clientside cookie, where google analytics will take the client id from.|_ga|
-|```COOKIE_DOMAIN```|The [domain](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Attributes) where the cookies are setup to.|google.com|
+|```COOKIE_DOMAIN```|The [domain](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Attributes) where the cookies are setup to. If not present, use the `Host` header.|google.com|
 |```COOKIE_SECURE```|If your website is accessable through https://, you should set this variable to true. [More info](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Secure)|true|
 
 

@@ -40,15 +40,26 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 	var statusCodeToReturn int = 200
 	var headersToReturn http.Header
 	var usedCache bool
+	var endpointURI = settingsGGGP.EndpointURI
+	var cookieDomain = settingsGGGP.CookieDomain
+	var cachePath = path
 
-	GaCache, CacheExists := srcGaCache[path]
+	if settingsGGGP.EndpointURI == "" {
+		endpointURI = r.Host
+		cachePath = endpointURI + "/" + path
+	}
+	if settingsGGGP.CookieDomain == "" {
+		cookieDomain = r.Host
+	}
+
+	GaCache, CacheExists := srcGaCache[cachePath]
 
 	if CacheExists == false {
 		gaMapSync.Lock()
-		srcGaCache[path] = gaSourceCodeCache{lastUpdate: 0}
+		srcGaCache[cachePath] = gaSourceCodeCache{lastUpdate: 0}
 		gaMapSync.Unlock()
 
-		GaCache, _ = srcGaCache[path]
+		GaCache, _ = srcGaCache[cachePath]
 	}
 
 	if settingsGGGP.EnableDebugOutput {
@@ -138,13 +149,13 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		}
 
 		re := regexp.MustCompile(`googletagmanager.com`)
-		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(endpointURI))
 
 		re = regexp.MustCompile(`\/gtm.js`)
 		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GtmFilename))
 
 		re = regexp.MustCompile(`www.google-analytics.com`)
-		body = re.ReplaceAll([]byte(body), []byte(settingsGGGP.EndpointURI))
+		body = re.ReplaceAll([]byte(body), []byte(endpointURI))
 
 		re = regexp.MustCompile(`analytics.js`)
 		body = re.ReplaceAll([]byte(body), []byte(`/`+settingsGGGP.JsSubdirectory+`/`+settingsGGGP.GaFilename))
@@ -208,7 +219,7 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 
 		// Reassigning the copy of the struct back to map
 		gaMapSync.Lock()
-		srcGaCache[path] = GaCache
+		srcGaCache[cachePath] = GaCache
 		gaMapSync.Unlock()
 	}
 
@@ -241,16 +252,16 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 
 		if settingsGGGP.CookieSecure {
 			if settingsGGGP.EnableDebugOutput {
-				fmt.Println(`Set-Cookie: ` + settingsGGGP.ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + settingsGGGP.CookieDomain + `; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+				fmt.Println(`Set-Cookie: ` + settingsGGGP.ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + cookieDomain + `; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			}
-			w.Header().Add(`Set-Cookie`, settingsGGGP.ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+settingsGGGP.CookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
-			w.Header().Add(`Set-Cookie`, settingsGGGP.ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+settingsGGGP.CookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+cookieDomain+`; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+cookieDomain+`; Secure; SameSite=Lax; Path=/; Max-Age=63072000`)
 		} else {
 			if settingsGGGP.EnableDebugOutput {
-				fmt.Println(`Set-Cookie: ` + settingsGGGP.ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + settingsGGGP.CookieDomain + `; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+				fmt.Println(`Set-Cookie: ` + settingsGGGP.ServerSideGaCookieName + `=` + newCookieContent + `; Domain=` + cookieDomain + `; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
 			}
-			w.Header().Add(`Set-Cookie`, settingsGGGP.ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+settingsGGGP.CookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
-			w.Header().Add(`Set-Cookie`, settingsGGGP.ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+settingsGGGP.CookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ServerSideGaCookieName+`=`+newCookieContent+`; Domain=`+cookieDomain+`; HttpOnly; SameSite=Lax; Path=/; Max-Age=63072000`)
+			w.Header().Add(`Set-Cookie`, settingsGGGP.ClientSideGaCookieName+`=`+newCookieDecodedContent+`; Domain=`+cookieDomain+`; SameSite=Lax; Path=/; Max-Age=63072000`)
 		}
 	}
 
