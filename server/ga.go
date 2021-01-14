@@ -169,6 +169,9 @@ func googleAnalyticsJsHandle(w http.ResponseWriter, r *http.Request, path string
 		re = regexp.MustCompile(`\"/j\/collect`)
 		body = re.ReplaceAll([]byte(body), []byte(`"`+settingsGGGP.GaCollectEndpointJ))
 
+		re = regexp.MustCompile(`\"/g\/collect`)
+		body = re.ReplaceAll([]byte(body), []byte(`"`+settingsGGGP.GaCollectEndpointG))
+
 		re = regexp.MustCompile(`\"/collect`)
 		body = re.ReplaceAll([]byte(body), []byte(`"`+settingsGGGP.GaCollectEndpoint))
 
@@ -301,6 +304,8 @@ func googleAnalyticsCollectHandle(w http.ResponseWriter, r *http.Request) {
 		clientURL = `https://www.google-analytics.com/r/collect`
 	case settingsGGGP.GaCollectEndpointJ:
 		clientURL = `https://www.google-analytics.com/j/collect`
+	case settingsGGGP.GaCollectEndpointG:
+		clientURL = `https://www.google-analytics.com/g/collect`
 	case settingsGGGP.GaCollectEndpoint:
 		fallthrough
 	default:

@@ -55,6 +55,7 @@ docker run \
     -e GA_COLLECT_ENDPOINT=/fetch \
     -e GA_COLLECT_REDIRECT_ENDPOINT=/fetch_r \
     -e GA_COLLECT_J_ENDPOINT=/fetch_j \
+    -e GA_COLLECT_G_ENDPOINT=/fetch_g \
     -e PROXY_IP_HEADER=X-Forwarded-For \
     -e PROXY_IP_HEADER_INDEX=0 \
     -e ENABLE_SERVER_SIDE_GA_COOKIES=true \
@@ -86,6 +87,7 @@ docker run \
 |```GA_COLLECT_ENDPOINT```|Set the new name for the /collect endpoint.|/fetch|
 |```GA_COLLECT_REDIRECT_ENDPOINT```|Set the new name for the /r/collect endpoint.|/fetch_r|
 |```GA_COLLECT_J_ENDPOINT```|Set the new name for the /j/collect endpoint. Couldn't find out yet for what this endpoint is. If you know more, please share! :)|/fetch_j|
+|```GA_COLLECT_G_ENDPOINT```|Set the new name for the /g/collect endpoint. Couldn't find out yet for what this endpoint is. If you know more, please share! :)|/fetch_g|
 |```PROXY_IP_HEADER```|The header variable where the proxy will find the IP address of the user.|X-Forwarded-For|
 |```PROXY_IP_HEADER_INDEX```|The header variable value will be split by comma. With this variable you can set the index of the users IP.|0|
 |```ENABLE_SERVER_SIDE_GA_COOKIES```|If the proxy should transfer the client id to a serverside cookie, set this to true.|true|

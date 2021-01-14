@@ -34,6 +34,7 @@ type settingsStruct struct {
 	GaCollectEndpoint         string
 	GaCollectEndpointRedirect string
 	GaCollectEndpointJ        string
+	GaCollectEndpointG        string
 	RestrictGtmIds            bool
 	AllowedGtmIds             []string
 	EnableServerSideGaCookies bool
@@ -135,6 +136,7 @@ func main() {
 	settingsGGGP.GaCollectEndpoint = os.Getenv(`GA_COLLECT_ENDPOINT`)
 	settingsGGGP.GaCollectEndpointRedirect = os.Getenv(`GA_COLLECT_REDIRECT_ENDPOINT`)
 	settingsGGGP.GaCollectEndpointJ = os.Getenv(`GA_COLLECT_J_ENDPOINT`)
+	settingsGGGP.GaCollectEndpointG = os.Getenv(`GA_COLLECT_G_ENDPOINT`)
 
 	settingsGGGP.AllowedGtmIds = strings.Split(os.Getenv(`GTM_IDS`), `,`)
 
@@ -229,6 +231,7 @@ func main() {
 	http.HandleFunc(settingsGGGP.GaCollectEndpoint, collectHandle)
 	http.HandleFunc(settingsGGGP.GaCollectEndpointRedirect, collectHandle)
 	http.HandleFunc(settingsGGGP.GaCollectEndpointJ, collectHandle)
+	http.HandleFunc(settingsGGGP.GaCollectEndpointG, collectHandle)
 
 	if err := http.ListenAndServe(`:8080`, nil); err != nil {
 		panic(err)
